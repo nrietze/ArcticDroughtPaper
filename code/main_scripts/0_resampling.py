@@ -1,15 +1,6 @@
 import os
 from glob import glob
-import re
 import subprocess
-from tkinter import filedialog
-from tkinter import *
-
-# Get the mosaic's filepath
-# PATH_IN = Tk()
-# PATH_IN.withdraw()
-# PATH_IN = filedialog.askopenfilename(initialdir = "D:/2_data/1_drone",
-#                                      title = "Provide the input tif")
 
 for year in [2020,2021]:
     
@@ -32,14 +23,13 @@ for year in [2020,2021]:
             elif sens == 'DSM':
                 fn = '*dsm.tif'
             
-            PATH_IN = "C:/data/0_Kytalyk/0_drone/{}/{}/{}/original/".format(year, site,sens) 
+            PATH_IN = "./data/drone/{}/{}/{}/original/".format(year, site,sens) 
             
             if not glob(PATH_IN + fn): # Check if list is empty, if yes, continue with next iteration
                 print('No data for {} from {} in {}. Skipping...'.format(sens,site,year))
                 continue
             
             PATH_IN = glob(PATH_IN + fn)[0]
-            # os.chdir(PATH_IN)
             # print(os.curdir)
 
             fpath, fname = os.path.split(PATH_IN)
@@ -70,7 +60,7 @@ for year in [2020,2021]:
             # PATH_OUT.withdraw()
             # PATH_OUT = filedialog.askdirectory(initialdir = "D:/2_data/1_drone",
             #                                    title = "Where should I store the resampled TIFFs?")
-            PATH_OUT = "C:/data/0_Kytalyk/0_drone/{}/{}/{}/resampled/".format(year, site,sens)
+            PATH_OUT = "./data/drone/{}/{}/{}/resampled/".format(year, site,sens)
             
             # Concatenate list to form output filename
             fname_out = '_'.join([fname, method,t_res,'resampled.tif'])
