@@ -14,11 +14,9 @@ from modules import *
 # =====================================================================
 
 # Search for all 
-# TIF_PATHS = glob("D:/2_data/1_drone/*/*_thermal_w_GeoBase/img/thm/converted/")
 TIF_PATHS = Tk()
 TIF_PATHS.withdraw()
-TIF_PATHS = filedialog.askdirectory(initialdir = "D:/2_data/1_drone",
-                                   title = "Where are the single tile thermal TIFFs?")
+TIF_PATHS = filedialog.askdirectory(title = "Where are the single tile thermal TIFFs?")
 TIF_PATHS = [TIF_PATHS + '/']
 
 for PATH_IN in TIF_PATHS:
@@ -57,8 +55,7 @@ for PATH_IN in TIF_PATHS:
     # Correct and store all images in that iteration to a new directory
     PATH_OUT = Tk()
     PATH_OUT.withdraw()
-    PATH_OUT = filedialog.askdirectory(initialdir = "D:/2_data/1_drone",
-                                       title = "Where should I store the corrected TIFFs?")
+    PATH_OUT = filedialog.askdirectory(title = "Where should I store the corrected TIFFs?")
     
 #     NAMES = [PATH_OUT + os.path.basename(fn) for fn in flist]
     print("Applying drift correction and saving to TIFF")

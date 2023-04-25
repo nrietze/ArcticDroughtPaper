@@ -117,7 +117,6 @@ def CompileMetadata(filenames: list, SaveToCSV = False):
     
     if SaveToCSV:
         filepath = os.path.dirname(filenames[0])
-#        filepath = 'C:/data/0_Kytalyk/0_drone/internal_data/'
         df.to_csv(filepath + "/" + 'metadata.csv', sep = ';')
         
     return df
@@ -219,8 +218,6 @@ def IO_correct_tif(filename: str,filename_out: str, fit: str , df: pd.DataFrame)
     """
     I = io.imread(filename)
     img_gps_time = df.index[df.filename.str.contains(os.path.basename(filename))]
-    # img_sensorT = df.T_sensor.loc[img_gps_time]
-    # II = I - fit(img_sensorT)
     
     correction_factor = df.loc[img_gps_time,fit].item()
     
