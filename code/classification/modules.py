@@ -20,11 +20,29 @@ from skimage.segmentation import slic # for segmentation to superpixels
 from skimage.measure import regionprops # for finding center coordinates of superpixels
 from libpysal.weights import KNN # for finding the connectivity matrix between the superpixels
 from sklearn.cluster import AgglomerativeClustering # for clustering the superpixels
-from osgeo import gdal
-import rasterio # for saving GeoTiff image
 
 
 def fitting_rf_for_region(labdat, featurenames, excl_low_imp, plot_importance = False):
+    """
+    
+
+    Parameters
+    ----------
+    labdat : TYPE
+        DESCRIPTION.
+    featurenames : TYPE
+        DESCRIPTION.
+    excl_low_imp : TYPE
+        DESCRIPTION.
+    plot_importance : TYPE, optional
+        DESCRIPTION. The default is False.
+
+    Returns
+    -------
+    dict
+        DESCRIPTION.
+
+    """
     # fitting the Random Forest classifier on the training data (labelled points) from the current region
     xtrain = labdat[featurenames]
     ytrain = labdat["label"]
@@ -67,3 +85,149 @@ def image_minmax(im, imax=None, imin=None): # performs image minmax normalizatio
         imin = im.min()       
     im = (im - imin)/(imax - imin)
     return im
+
+# --------------------------------------
+from osgeo import gdal
+import rasterio # for saving GeoTiff image
+
+def ExportToTif(fname_ref, fname_out, data):
+    """
+    Exports 2D raster data to a pre-specified GeoTIFF format
+
+    Parameters
+    ----------
+    fname_ref : str
+        Filepath of a reference raster with the desired CRS.
+    fname_out : str
+        Filepath of the output raster.
+    data : np.array
+        The data for the raster with dimensions h x w.
+
+    Returns
+    -------
+    
+
+    """
+    orig = rasterio.open(fname_ref) # reading out the original coordinates
+    new_dataset = rasterio.open( 
+        fname_out,
+        'w',
+        driver = 'GTiff',
+        height = data.shape[0],
+        width = data.shape[1],
+        count = 1,
+        dtype = data.dtype,
+        crs = orig.crs, # coordinates of original image
+        transform = orig.transform,
+    )
+    new_dataset.write(data,indexes=1)
+    new_dataset.close()
+
+# --------------------------------------
+from tqdm import tqdm
+import rioxarray as rxr
+
+def FetchImageData(Raster, lons, lats):
+    """
+    Retrieve values in a raster near to given coordinates
+
+    Parameters
+    ----------
+    Raster : xarray.DataSet or xarray.DataArray
+    lons : list, array or pandas.Series
+        List of longitudes.
+    lats : list, array or pandas.Series
+        List of latitudes
+
+    Returns
+    -------
+    subset : list
+        A list of raster values extracted from the coordinates.
+
+    """
+    subset = [Raster.sel(x = x,
+                         y = y, method = 'nearest').values for x,y in tqdm(zip(lons,lats))]
+    return subset
+
+# --------------------------------------
+def SetBandDescriptions(filepath, bands):
+    """
+    filepath: path/virtual path/uri to raster
+    bands:    ((band, description), (band, description),...)
+    """
+    ds = gdal.Open(filepath, gdal.GA_Update)
+    for band, desc in bands:
+        rb = ds.GetRasterBand(band)
+        rb.SetDescription(desc)
+    del ds
+    
+# --------------------------------------
+import geopandas as gpd
+from shapely.geometry import Point, mapping
+import warnings
+from shapely.errors import ShapelyDeprecationWarning
+warnings.filterwarnings("ignore", category=ShapelyDeprecationWarning) 
+from rasterio.mask import mask
+from rasterio import Affine
+
+def ExtractFromMultipolygon(gdfRow, tif, Dataname: str):
+    """
+    Randmoly selects 200 pixel locations in a multipolygon feature layer 
+    based on the grid of the tif layer.
+
+    Parameters
+    ----------
+    gdfRow : geopandas.DataFrame
+        DESCRIPTION.
+    tif : rasterio raster file
+        The Raster file that provides the pixel grid on which the random selection takes place.
+    Dataname : str
+        DESCRIPTION.
+
+    Returns
+    -------
+    geopandas.DataFrame
+        Subset of the input geopandas.DataFrame with random point locations within each polygon.
+
+    """
+    # extract the Classnames & class id
+    ClName = gdfRow.Classname 
+    ClId = gdfRow.Classcode 
+    
+    # extract the geometry in GeoJSON format
+    geometry = gdfRow.geometry # list of shapely geometries
+
+    # transform to GeJSON format
+    geoms = [mapping(geometry)]
+
+    # extract the raster values values within the polygon 
+    out_image, out_transform = mask(tif, geoms, nodata = 0, 
+                                    all_touched = True,
+                                    crop = True)
+    
+    # no data values of the original raster
+    no_data = 0
+
+    # extract the values of the masked array
+    data = out_image[0]
+
+    # extract the row, columns of the valid values
+    row, col = np.where(data != no_data) 
+    vals = np.extract(data != no_data, data)
+    
+    T1 = out_transform * Affine.translation(0.5, 0.5) # reference the pixel centre
+    rc2xy = lambda r, c: T1  * (c, r)
+    
+    d = gpd.GeoDataFrame({'col':col,'row':row,'Classname':ClName,'Classcode':ClId,'%s'% Dataname:vals} )
+    
+    d['id'] = gdfRow.name
+    
+    # coordinate transformation
+    d['x'] = d.apply(lambda row: rc2xy(row.row,row.col)[0], axis=1)
+    d['y'] = d.apply(lambda row: rc2xy(row.row,row.col)[1], axis=1)
+
+    # geometry
+    d['geometry'] = d.apply(lambda row: Point(row['x'], row['y']), axis=1)
+
+    nsamples = min(len(d),200)
+    return d.sample(nsamples,random_state = 11)
