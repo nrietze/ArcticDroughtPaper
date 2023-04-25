@@ -1,16 +1,13 @@
 from glob import glob
 import os
 from tkinter import filedialog
-from tkinter import *
+from tkinter import Tk
 
 from tqdm import tqdm
 
-from skimage import io
-
 import pandas as pd
-import numpy as np
 
-from modules import *
+from modules import CompileMetadata, GatherData, IO_correct_tif
 # =====================================================================
 
 # Search for all 
@@ -22,6 +19,7 @@ TIF_PATHS = [TIF_PATHS + '/']
 for PATH_IN in TIF_PATHS:
     r = "y"
     print(PATH_IN)
+    
     # Check if target directory has drift-corrected scenes
     print("Processing %s ... \n" % PATH_IN)
     
@@ -37,6 +35,7 @@ for PATH_IN in TIF_PATHS:
 
     # Metadata found --> how to proceed
     elif os.path.exists(PATH_IN + 'metadata.csv'):
+        
         # Ask user if the site needs to be processed again
         r = input("You might have already processed this flight. Continue with old metadata? \n y/n \n")
         if r == "y":
@@ -57,7 +56,6 @@ for PATH_IN in TIF_PATHS:
     PATH_OUT.withdraw()
     PATH_OUT = filedialog.askdirectory(title = "Where should I store the corrected TIFFs?")
     
-#     NAMES = [PATH_OUT + os.path.basename(fn) for fn in flist]
     print("Applying drift correction and saving to TIFF")
     
     [IO_correct_tif(filename = fn ,

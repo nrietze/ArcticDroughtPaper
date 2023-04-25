@@ -1,4 +1,11 @@
-from glob import glob
+"""Custom functions for thermal drift correction of drone imagery
+
+This script contains the custom modules that were used to retrieve metadata, fit a polynomial
+to the sensor temperature vs. correction temperature relationship. 
+
+Author: Nils Rietze - nils.rietze@uzh.ch
+Created: 24.04.2023
+"""
 import os
 
 import pyexiv2
@@ -57,6 +64,26 @@ def ExtractImageData(filename: str):
 # =====================================================================
 
 def GetFlightlines(df):
+    """
+    Generates indicators for the direction and number of the flight path.
+    Can only use data from one flight at a time.
+    
+    Directions given in binary:
+    1 = away from start of flight, 0 = towards start of flight
+    
+    Flightlines are given as increasing integers starting with 1.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Dataframe containing the GPS coordinates of image locations.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        Dataframe containing the direction and number of the flightline.
+
+    """
     # 1 = up, 0 = down
     df['direction'] = 0
     flightline = 0
@@ -86,7 +113,20 @@ def GetFlightlines(df):
 
 def CompileMetadata(filenames: list, SaveToCSV = False):
     """
-    returns a Dataframe with:
+    Collects the metadata from all images in a drone flight.
+    
+    Parameters
+    ----------
+    filenames : list
+        List of all thermal images collected during the flight.
+    
+    SaveToCSV : bool
+        Whether to save the metadata to a csv file (True) or proceed without saving (default).
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        Dataframe containing the following:
             - gps_time,
             - T_sensor,
             - mean_tile_LST,
@@ -97,6 +137,7 @@ def CompileMetadata(filenames: list, SaveToCSV = False):
             - direction,
             - flightline
     """
+    
     df = pd.DataFrame(data = map(ExtractImageData,tqdm(filenames)),
                      columns = ['gps_time', 'T_sensor','mean_tile_LST','filename','latitude','longitude'])
     
@@ -123,7 +164,31 @@ def CompileMetadata(filenames: list, SaveToCSV = False):
 
 # =====================================================================
 
-def GatherData(df,unc_instr, FitOnUnstable = True):
+def GatherData(df, unc_instr, FitOnUnstable = True):
+    """
+    Runs all polynomial fitting functions on the flight metadata.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        Dataframe that contains all information returned in `CompileMetadata`. 
+    unc_instr : float
+        The uncertainty temperature amplitude. E.g. if unc_instr = 0.5, the sensor is considered
+        stable for sensor temperatures <= minimum sensor temperature + 0.5.
+    FitOnUnstable : bool, optional
+        Whether to fit the polynomial on stable images only. The default is True.
+
+    Returns
+    -------
+    df : pandas.DataFrame
+        An extended version of the input dataframe but with linear to quartic fits added as columns named:
+            fit_1 to fit_4.
+        Also two new columns called 'isStable' and 'LST_deviation' are added:
+            - 'isStable' indicates True when the sensor temperature is considered stable
+            - 'LST_deviation' is the deviation of the average LST in an image from the mean LST during sensor stability.
+
+    """
+    
     df['site'] = df.filename.apply(lambda s: s.replace('\\','/').split('/')[4].split('_')[0])
     df['year'] = df.gps_time.dt.year
     df['flighttime_min'] = df.flighttime_sec.div(60)
@@ -140,18 +205,19 @@ def GatherData(df,unc_instr, FitOnUnstable = True):
     for deg in range(1,4):
         
         if FitOnUnstable:
-#             Fits the correction model only on the unstable data
+            # Fits the correction model only on the unstable data
             z = PolyFitSensorT(df[~df['isStable']],xvar = 'T_sensor', yvar = 'LST_deviation', degree = deg)
             df['fit_%i'% deg] = z(df.T_sensor)
         
         else:
-#             Fits the model on all tiles
+            # Fits the model on all tiles
             z = PolyFitSensorT(df,xvar = 'T_sensor', yvar = 'LST_deviation', degree = deg)
             df['fit_%i'% deg] = z(df.T_sensor)
         
         if (df.site.unique() == 'TLB') or (df.site.unique() == 'Ridge') & (df.year.unique() == 2020):
             cutoff = 13
-            # Mae 2 fits for 2020 TLB
+            
+            # Fit twice for 2020 TLB
             cond1 = df.flighttime_min <= cutoff
             z1 = PolyFitSensorT(df[cond1],
                                 xvar = 'T_sensor', 
