@@ -1,5 +1,4 @@
 import os
-from glob import glob
 import subprocess
 
 fpath = "../../../data/mosaics/"
@@ -11,20 +10,15 @@ for year in [2020,2021]:
         
         for sens in ['thermal','msp']:
             
-            # 1. CNOFIGURE PATHS AND LOAD DATA
+            # 1. CONFIGURE PATHS AND LOAD DATA
             # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             fname = f"{site}_{sens}_{year}.tif"
             
-            if not glob(fname): # Check if list is empty, if yes, continue with next iteration
-                print(f'No {sens} data from {site} in {year}. Skipping...')
-                continue
-            
-            # Ask for the target resolution and resampling method
+            # Provide the target resolution and resampling method
             t_res = str(.15)
             t_res_neg = str(-.15)
             
-            # list of possible resampling methods, we used average
-            methodlist = ('\n').join(['near','bilinear','cubic','cubicspline','lanczos','average'])
+            methodlist = ['near','bilinear','cubic','cubicspline','lanczos','average'] # list of possible resampling methods, we used average
             method = 'average'
             
             # Concatenate list to form output filename
@@ -59,7 +53,8 @@ for year in [2020,2021]:
                 y_min = 7858449.7992
                 y_max = 7859026.2492
             
-            # Run GDALWARP as cmd in subprocess
+            # 2. RESAMPLE DATA USING GDALWARP IN SUBPROCESS
+            # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
             print(f'Resampling {sens} from {site} in {year}')
             args = ['gdalwarp', 
                     '-t_srs', proj_TIR, 
