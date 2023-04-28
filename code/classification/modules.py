@@ -22,6 +22,7 @@ from libpysal.weights import KNN # for finding the connectivity matrix between t
 from sklearn.cluster import AgglomerativeClustering # for clustering the superpixels
 
 
+# --------------------------------------
 def fitting_rf_for_region(labdat, featurenames, excl_low_imp, plot_importance = False):
     """
     
@@ -79,6 +80,21 @@ def fitting_rf_for_region(labdat, featurenames, excl_low_imp, plot_importance = 
     return {'clf': clf, 'featurenames': featurenames}
 
 
+# --------------------------------------
+def plot_2images(img1,img2, figsize=(14,6), titles = ["",""]): # plotting 2 images
+    fig = plt.figure(figsize=figsize)
+    ax = fig.add_subplot(1, 2, 1)
+    ax.imshow(img1)
+    plt.axis("off")
+    plt.title(titles[0])
+    ax = fig.add_subplot(1, 2, 2)
+    ax.imshow(img2)
+    plt.axis("off")
+    plt.title(titles[1])
+    plt.tight_layout(pad=1)
+    plt.show()
+
+# --------------------------------------
 def image_minmax(im, imax=None, imin=None): # performs image minmax normalization
     if imax is None:
         imax = im.max()

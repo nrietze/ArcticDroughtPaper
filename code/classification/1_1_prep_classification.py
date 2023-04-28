@@ -10,7 +10,7 @@ import os
 from glob import glob
 
 import subprocess
-
+import time
 import numpy as np
 import random
 
@@ -24,10 +24,7 @@ import rasterio # for saving GeoTiff image
 
 import rioxarray as rxr
 
-
-from elena_functions import image_minmax, plot_2images
-
-from modules import FetchImageData, ExportToTif, SetBandDescriptions, ExtractFromMultipolygon
+from modules import FetchImageData, ExportToTif, SetBandDescriptions, ExtractFromMultipolygon,image_minmax, plot_2images
 
 # --------------------------------------
 
@@ -41,6 +38,11 @@ run_pointsampling = True
 
 TIF_PATH = "../../../data/mosaics/"
 os.chdir(TIF_PATH)
+
+try:
+    os.makedirs("./indices/")
+except:
+    pass
 
 for year in [2020,2021]:
     for site in ['TLB','Ridge','CBH']:
@@ -62,10 +64,10 @@ for year in [2020,2021]:
                 print(f'Please resample all multispectral files for {site} {year} first!', end='\n')
                 break
             
-            FNAME_MSP_INDEXSTACK = f"{site}_msp_index_stack_{year}.tif"
+            FNAME_MSP_INDEXSTACK = f"./indices/{site}_msp_index_stack_{year}"
             
             # Check if a multispectral index stack already exists, if yes then skip
-            if os.path.exists(FNAME_MSP_INDEXSTACK):
+            if os.path.exists(FNAME_MSP_INDEXSTACK + ".tif"):
                 print('Index stack exists, indices already computed. Skipping...', end = '\n')
             else:
                 print('Copmuting multispectral indices...', end='\n')
@@ -96,49 +98,56 @@ for year in [2020,2021]:
                 rcc = red / ( red + green + blue )
                 gcc = green / ( red + green + blue )
                 bcc = blue /  (red + green + blue )
-                
-                # GLCMs
-                # each has 4 bands ("mean", "variance", "homogeneity","dissimilarity"), we will only use variance for now
-                # glcmfiles_IN = glob('MSP/indices/*GLCM.tif')
-                # glcmfiles_OUT = [os.path.splitext(fn)[0] + '.vrt' for fn in glcmfiles_IN]
-                # vrt_options = gdal.BuildVRTOptions(bandList = [2], # band number 2 for GLCM variances
-                #                                    outputSRS = 'EPSG:32655') 
-                # my_vrt = gdal.BuildVRT('MSP/indices/GLCM5.vrt', glcmfiles_IN, options=vrt_options)
-                # my_vrt = None
-                
+               
+                # Export the individual index rasters in GeoTiff format
                 out_list = [ndvi,
                             rcc,gcc,bcc] 
                 
                 for i, var in enumerate(['NDVI','RCC','GCC','BCC']):
-                    fname_out = f"{site}_{var}_{year}.tif" # Saving the index image in GeoTiff format
+                    fname_out = f"./indices/{site}_{var}_{year}.tif" 
                     ExportToTif(FNAME_MSP, fname_out, out_list[i])
-                
-                # Create multiband raster
-                indexfiles = list(set(glob('MSP/indices/*.tif')) - set(glob('MSP/indices/*GLCM*.tif'))) # List all multispectral index files except GLCMS (already resampled)
-                # indexfiles = glob('MSP/indices/*.tif')
-                
+                    
+                # Stack GLCM rasters
                 """
                 The GLCM rasters have 4 bands: mean, variance, homogeneity, dissimilarity
                 
                 """
-                vrt_options = gdal.BuildVRTOptions(separate=True,
-                                                   outputSRS = 'EPSG:32655') 
+                if year == 2021:
+                    FLIST_GLCM = glob('./indices/*GLCM*.tif')
+                
+                    try: 
+                        glcmfiles_out = [os.path.splitext(fn)[0] + '.vrt' for fn in FLIST_GLCM]
+                        vrt_options = gdal.BuildVRTOptions(bandList = [2], # band number 2 for GLCM variances
+                                                            outputSRS = 'EPSG:32655') 
+                        my_vrt = gdal.BuildVRT('./indices/GLCM.vrt', FLIST_GLCM, options=vrt_options)
+                        my_vrt = None
+                    except:
+                        print("No GLCM files found. Please prepare the GLCM files first!")
+                        break
+                    
+                # Stack the index rasters to multiband raster
+                # ----
+                print('Creating MSP index stack...', end='\n')
+                
+                # List all multispectral index files except GLCMS (already resampled)
+                indexfiles = list(set(glob(f'./indices/{site}_*_{year}.tif')) - set(glob(f'./indices/{site}_{year}_*GLCM*.tif'))) 
+                
+                vrt_options = gdal.BuildVRTOptions(separate=True,outputSRS = 'EPSG:32655') 
                 my_vrt = gdal.BuildVRT(FNAME_MSP_INDEXSTACK + '.vrt', indexfiles, options=vrt_options)
                 my_vrt = None
+                time.sleep(10)
                 
-        
-                # Run GDALWARP as cmd in subprocess
-                print('Exporting MSP index stack...', end='\n')
+                # Convert virtual raster to tif with gdal_translate in subprocess
                 args = ['gdal_translate', 
                         FNAME_MSP_INDEXSTACK + '.vrt', 
                         FNAME_MSP_INDEXSTACK + '.tif']
                 subprocess.Popen(args)
-                    
-                import time
+                
                 time.sleep(10)
+                os.remove(FNAME_MSP_INDEXSTACK + '.vrt')
                 
                 # Set Band descriptions
-                desc = ['_'.join(os.path.basename(fn).split('.')[0].split('_')[2:]) for fn in indexfiles]
+                desc = [os.path.basename(fn).split('.')[0].split('_')[1] for fn in indexfiles]
                 SetBandDescriptions(FNAME_MSP_INDEXSTACK + '.tif', zip(range(1,len(desc)+1), desc))
                 
                 time.sleep(10)
@@ -151,18 +160,29 @@ for year in [2020,2021]:
         # 3. GENERATE RANDOM SAMPLE POINTS
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         if run_pointsampling:
-            src = rasterio.open(FNAME_MSP) # Load Raster with sample grid (needs to be the same gridding for all rasters of that site & year)
+            # Load Raster with sample grid (needs to be the same gridding for all rasters of that site & year)
+            src = rasterio.open(FNAME_MSP) 
             
+            # Load land cover polygons 
             if year == 2020:
-                shapefile = gpd.read_file('C:/data/0_Kytalyk/0_drone/classification/2020_training_polygons.shp')
+                shapefile = gpd.read_file('../shapefiles/2020_training_polygons.shp')
             else:
-                shapefile = gpd.read_file('C:/data/0_Kytalyk/0_drone/classification/training_polygons.shp')
+                # Check if GLCM files are available, if not then generate those in R first
+                try: 
+                    FLIST_GLCM = glob('./indices/*GLCM*.tif')
+                    # run dummy test to see if any GLCM files are around
+                    rxr.open_rasterio(FLIST_GLCM[0])
+                except:
+                    print("No GLCM files found. Please prepare the GLCM files first!")
+                    break
+                shapefile = gpd.read_file('../shapefiles/training_polygons.shp')
             
-            project_area = gpd.read_file('C:/data/0_Kytalyk/0_drone/project_areas_pix4d/%s_project_area.shp' % site.lower())
+            project_area = gpd.read_file(f'../shapefiles/{site.lower()}_project_area.shp')
             
             clipped_shapefile = gpd.clip(shapefile,project_area)
             
             print('Sampling random points...', end='\n')
+            # Sample 200 random points within each polygon, based on the grid of `src`
             dfs = list(clipped_shapefile.apply(lambda row: ExtractFromMultipolygon(row, 
                                                                            tif = src, 
                                                                            Dataname = 'blue'),
@@ -181,38 +201,44 @@ for year in [2020,2021]:
             
             I_msp = rxr.open_rasterio(FNAME_MSP)
             
+            # Retrieve reflectances from multispectral raster and add to geoDataFrame
             gdfOut.loc[:, ["b","g","r","re","nir"]] = FetchImageData(I_msp, gdfOut.lon_utm, gdfOut.lat_utm)
             
-            FNAME_MSP_INDEXSTACK = PATH + "MSP/indices/{}_{}_indices_stack".format(site,year)
+            FNAME_MSP_INDEXSTACK = f"./indices/{site}_msp_index_stack_{year}"
+            
             I_msp_ind = rxr.open_rasterio(FNAME_MSP_INDEXSTACK + '.tif')
             
             index_stack_vars = I_msp_ind.long_name # ["bcc","gcc","ndvi","rcc"] + glcmnames
             
+            # Retrieve indices from multispectral index raster and add to geoDataFrame
             gdfOut.loc[:,index_stack_vars] = FetchImageData(I_msp_ind, gdfOut.lon_utm, gdfOut.lat_utm)
             
+            # Retrieve GLCM values from GLCM raster and add to geoDataFrame
             if year == 2021:
-                FLIST_GLCM = glob('MSP/indices/*GLCM*.tif')
+                FLIST_GLCM = glob('./indices/*GLCM*.tif')
+                
                 for FNAME_GLCM in FLIST_GLCM:
                     with rxr.open_rasterio(FNAME_GLCM) as I_glcm:
-                        glcm_stats = ["m", "v", "h","d"] # mean, variance, homogeneity, dissimilarity
+                        # mean, variance, homogeneity, dissimilarity
+                        glcm_stats = ["m", "v", "h","d"] 
                         glcm_varnames = ['{}_{}'.format(a, FNAME_GLCM.split('_')[2]) for a in glcm_stats]
                         gdfOut.loc[:,glcm_varnames] = FetchImageData(I_glcm, gdfOut.lon_utm, gdfOut.lat_utm)
             
-            
+            # Export geoDataFrame to shapefile (MultiPoint)
             schema = gpd.io.file.infer_schema(gdfOut)
             # schema['properties']['int_column'] = 'int:18'
             
-            gdfOut.to_file('C:/data/0_Kytalyk/0_drone/classification/{}_training_polygons/{}_{}_Trainingpoints.shp'.format(site,year,site),
+            gdfOut.to_file(f'../shapefiles/{year}_{site}_points.shp',
                            driver='ESRI Shapefile', schema=schema)
             
         print('done.', end='\n')
     
     # Concatenate all trainingpoints into one dataframe:
-    FLIST_TRAININGPOINTS = glob(r'C:/data/0_Kytalyk/0_drone/classification/*_training_polygons/{}_*_Trainingpoints.shp'.format(year))
+    FLIST_TRAININGPOINTS = glob(f'../shapefiles/{year}_*_points.shp')
     
     gdfAll = pd.concat(
         map(gpd.read_file,FLIST_TRAININGPOINTS),
         ignore_index=False).reset_index(drop=True)
     
-    gdfAll.to_file('C:/data/0_Kytalyk/0_drone/classification/All_Trainingpoints_%s.shp' % year,
+    gdfAll.to_file(f'../shapefiles/{year}_all_points.shp',
                    driver='ESRI Shapefile')
