@@ -574,6 +574,28 @@ def GatherData(fname,unc_instr, FitOnUnstable = True):
     return df
 
 # %% DATA PREPARATION FUNCTIONS
+
+def read_fluxtower(fname):
+    """
+    Reads a .dat logger file from the flux tower and converts it into a Pandas.DataFrame.
+    
+    Requires:
+    - a filename (incl. path) of the data
+    
+    Returns:
+    - a DataFrame with a timezone-aware datetime index.
+    """
+    
+    df = pd.read_csv(fname,
+                     sep='\t',
+                     skiprows=[0,2,3],
+                     parse_dates = True,
+                     index_col = 0,
+                     low_memory=False)
+    df.index = df.index.tz_localize('Asia/Srednekolymsk')
+    
+    return df
+
 def GetMeanTair(df_flighttimes, df_fluxtower, site, year,
                 returnTemp=True,returnSW = False,returnWS = False):
     """

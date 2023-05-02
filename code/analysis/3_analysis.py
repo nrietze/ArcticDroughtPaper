@@ -13,24 +13,22 @@ import matplotlib.pyplot as plt
 from cmcrameri import cm
 import seaborn as sns
 
+from statsmodels.stats.multicomp import MultiComparison
+from scipy.stats import ttest_ind, ttest_rel
+
 import sys, os
 
-from FigFunctions import GetMeanTair,PrepRasters,MeltArrays,ScaleMinMax,DifferenceTest,pretty_table,ProgressParallel,PlotDensities,PlotBoxWhisker,PlotFcoverVsTemperature,PolyFitSensorT,GatherData
+from FigFunctions import read_fluxtower,GetMeanTair,PrepRasters,MeltArrays,ScaleMinMax,DifferenceTest,pretty_table,ProgressParallel,PlotDensities,PlotBoxWhisker,PlotFcoverVsTemperature,PolyFitSensorT,GatherData
 
 # %% 0. LOAD DATA & PREALLOCATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # configure variables
 seed = 15
 study_area_sidelength = 400 # in m
+dxy = int(study_area_sidelength / .15) # 667 pixels along 100m ==> 1 ha
 
-colordict = dict(HP1 = '#AAFF00', 
-                 HP2 = '#38A800', 
-                 LW1 = '#00FFC5',
-                 LW2 = '#A90EFF',
-                 TS = '#3D3242',
-                 mud = '#734C00',
-                 water = '#005CE6')
 
+# Class labels and values for land cover raster
 classdict = {0:'HP1',
              1:'LW1',
              2:'HP2',
@@ -40,13 +38,23 @@ classdict = {0:'HP1',
              7:'TS',
              255:'nodata'}
 
+# Color scheme for plots
+colordict = dict(HP1 = '#AAFF00', 
+                 HP2 = '#38A800', 
+                 LW1 = '#00FFC5',
+                 LW2 = '#A90EFF',
+                 TS = '#3D3242',
+                 mud = '#734C00',
+                 water = '#005CE6')
+
 print('Loading data...')
 
-df_fluxtower = myf.read_fluxtower('C:/data/0_Kytalyk/7_flux_tower/CR3000_Kytalyk_Meteo.dat')
+os.chdir('../../../data/')
+
+df_fluxtower = read_fluxtower('./tables/CR3000_Kytalyk_Meteo.dat')
 
 parser = lambda date: pd.to_datetime(date,format='%d.%m.%Y %H:%M').tz_localize('Asia/Srednekolymsk')
-
-df_flighttimes = pd.read_csv(r'C:\data\0_Kytalyk\0_drone\flight_times.csv', 
+df_flighttimes = pd.read_csv('./tables/flight_times.csv', 
                              sep = ';', 
                              parse_dates = [4,5],
                              date_parser=parser)
@@ -54,32 +62,22 @@ df_flighttimes = pd.read_csv(r'C:\data\0_Kytalyk\0_drone\flight_times.csv',
 sites = ['CBH', 'TLB', 'Ridge']
 df_list = list(range(3))
 
+# create output directories if they don't exist yet:
+if not os.path.exists('./tables/results/'):
+    os.makedirs('./tables/results/')
+if not os.path.exists('./tables/intermediate/'):
+    os.makedirs('./tables/intermediate/')
+    
 for i,site in enumerate(sites):
-    PATH_20_TIR = rf'.\paper\data\mosaics\{site}_thermal_2020_resampled.tif'
-    PATH_21_TIR = rf'.\paper\data\mosaics\{site}_thermal_2021_resampled.tif'
+    PATH_20_TIR = rf'.\mosaics\{site}_thermal_2020_resampled.tif'
+    PATH_21_TIR = rf'.\mosaics\{site}_thermal_2021_resampled.tif'
     
-    PATH_MSP_20 = rf'.\paper\data\mosaics\{site}_msp_2020_resampled.tif'
-    PATH_MSP_21 = rf'.\paper\data\mosaics\{site}_msp_2021_resampled.tif'
+    PATH_MSP_20 = rf'.\mosaics\{site}_msp_2020_resampled.tif'
+    PATH_MSP_21 = rf'.\mosaics\{site}_msp_2021_resampled.tif'
         
-    PATH_CL = rf'.\paper\data\landcover\{site}_2021_classified_filtered5.tif'
-    PATH_WATERMASK = rf'.\paper\data\landcover\{site}_2020_classified_filtered5.tif'
+    PATH_CL = rf'.\landcover\{site}_2021_classified_filtered5.tif'
+    PATH_WATERMASK = rf'.\landcover\{site}_2020_classified_filtered5.tif'
         
-    print('Loading data...')
-    
-    df_fluxtower = myf.read_fluxtower('C:/data/0_Kytalyk/7_flux_tower/CR3000_Kytalyk_Meteo.dat')
-    
-    parser = lambda date: pd.to_datetime(date,format='%d.%m.%Y %H:%M').tz_localize('Asia/Srednekolymsk')
-    
-    df_flighttimes = pd.read_csv(r'C:\data\0_Kytalyk\0_drone\flight_times.csv', 
-                                 sep = ';', 
-                                 parse_dates = [4,5],
-                                 date_parser=parser)
-    
-    # Set side length for study area (in m)
-    sl = 400 
-    
-    dxy = int(sl / .15) # 667 pixels along 100m ==> 1 ha
-    
     # Define corner coordinates of study area extent
     if site == 'Ridge':
         ymin = 200
@@ -106,52 +104,34 @@ for i,site in enumerate(sites):
                                                                                   PATH_MSP_20,PATH_MSP_21,
                                                                                   extent)
     
-    # Class labels and values for land cover raster
-    classdict = {0:'HP1',
-                 1:'LW1',
-                 2:'HP2',
-                 3:'water',
-                 4:'LW2',
-                 5:'mud',
-                 7:'TS',
-                 255:'nodata'}
-    
     names = [classdict[i] for i in np.unique(I_cl_s)]
-    
-    # Color scheme for plots
-    colordict = dict(HP1 = '#AAFF00', 
-                     HP2 = '#38A800', 
-                     LW1 = '#00FFC5',
-                     LW2 = '#A90EFF',
-                     TS = '#3D3242',
-                     mud = '#734C00',
-                     water = '#005CE6')
     
     # Replace no data values (255) with nan
     I_cl_s = np.where(I_cl_s == 255,np.nan, I_cl_s)
     
     # check if a csv of image data already exists:
     try:
-        df_m_s = pd.read_csv(fr'.\data\thermal_data/{site}_data_thermal.csv',sep=';')
+        df_m_s = pd.read_csv(f'./tables/intermediate/{site}_data_thermal.csv',sep=';')
         print('Data for this site is available. Loading ...')
-        # df_m_s_stats = pd.read_csv(fr'.\results\statistics\map_stats\{site}_statistics.csv',sep = ';')
         
     except:
         # if it doesn't exist, compile the samples:
-        print('No thermal data found. Sampling...')
+        print('Sampling thermal data...')
         
+        # Reformatting TIR mosaics to long dataframes
         df_tir = pd.concat(
             map(lambda arr,year: MeltArrays(arr,I_cl_s,names,year,'deltaT'),
                 [I_tir_20_s,I_tir_21_s],[2020,2021]), 
             ignore_index=False).reset_index(drop=True)
         
+        # Reformatting NDVI mosaics to long dataframes
         df_ndvi = pd.concat(
             map(lambda arr,year: MeltArrays(arr,I_cl_s,names,year,'ndvi'),
                 [I_ndvi_20_s,I_ndvi_21_s],[2020,2021]), 
             ignore_index=False).reset_index(drop=True)
         df_tir['ndvi'] = df_ndvi.ndvi
         
-        # Compute water deficit index:
+        # Computing and reformatting water deficit index to long dataframes:
         df_wdi = pd.concat(
             map(lambda arr,year: MeltArrays(arr,I_cl_s,names,year,'wdi'),
                 [ScaleMinMax(I_tir_20_s),ScaleMinMax(I_tir_21_s)],[2020,2021]), 
@@ -170,16 +150,22 @@ for i,site in enumerate(sites):
             # ignore_index=True 
         )  
         # Export to csv
-        df_m_s.to_csv(fr'.\data\thermal_data/{site}_data_thermal.csv',sep=';')
+        df_m_s.to_csv(f'./tables/intermediate/{site}_data_thermal.csv',sep=';')
         
         # Generate descripitve statistics and save as csv
+        df_m_s_stats = df_m_s.groupby(['year','variable']).describe()
+        
         def iqr_func(col):
+            """
+            Compute interquartile range
+            """
             return np.nanquantile(col, q=0.75) - np.nanquantile(col, q=0.25)
         
-        df_m_s_stats = df_m_s.groupby(['year','variable']).describe()
         for main_col in df_m_s_stats.columns.levels[0]:
             df_m_s_stats[(main_col, 'iqr')] = df_m_s.groupby(['year','variable']).agg(iqr_func)[main_col]
-        df_m_s_stats.to_csv(fr'.\results\statistics\map_stats\{site}_statistics.csv',sep = ';')
+        
+        # Export table of descriptive statistics
+        df_m_s_stats.to_csv(fr'./tables/results/Table_S_{site}.csv',sep = ';')
     
     # Sort community labels along moisture gradient
     if site == 'TLB':
@@ -192,7 +178,11 @@ for i,site in enumerate(sites):
         label_order = ['LW1','HP2','TS']
         xlim = [5,20]
          
+    # Set 'variable' column (community labels) to categorical
     df_m_s['variable'] = df_m_s.variable.astype("category").cat.set_categories(label_order, ordered=True)
+    
+    # Store sampled dataframe to list
+    df_list[i] = df_m_s
     
     print('done.')
 
@@ -201,176 +191,105 @@ for i,site in enumerate(sites):
 group_var = 'variable'
 xvar = 'deltaT'
 
-saveresults = False
+for i,site in enumerate(sites):
+    print(f'Generating subplot in {site} for Figure 1...')   
+    
+    df_m_s = df_list[i]
+    
+    # Perform Tukey HSD
+    # sample 1 % of observations (= 200) per plant community and year
+    df_sample = df_m_s.groupby(['variable','year']).sample(frac = 0.01,
+                                                           random_state = seed)
+    
+    mc20,mc21 = df_sample.loc[(df_sample.variable != 'water') & 
+                              (df_sample.variable != 'mud')].groupby(['year']).apply(lambda x: MultiComparison(x[xvar], x[group_var]))
+    
+    # Save test results in dataframe (for significance brackets in plot)
+    thsd = pd.DataFrame(data = mc21.tukeyhsd()._results_table.data[1:], 
+                        columns = mc21.tukeyhsd()._results_table.data[0])
+    
+    print('2021: \n', mc21.tukeyhsd(), end = '\n')                                                                                       
+                                                                                               
+    PATH_SAVE = f'../figures/Fig_1_{site}.png'
+    
+    ax = PlotDensities(df_m_s, xvar,PATH_SAVE,
+                       xlim = xlim,
+                       colors = colordict,
+                       showSignif = True, data_pairtest = thsd,
+                       order = label_order,
+                       showTair = False, showWater = False,
+                       showBothYears = False,
+                       saveFig = False)
+    
+    thsd.to_csv(f'./tables/results/Table_S8_{site}.csv', sep=';', index = False)
+    print('done.')
 
-from scipy.stats import normaltest
-alpha = 1e-3
-normtest = df_m_s.groupby(['year','variable']).apply(lambda x: normaltest(x[xvar]))
-df_normtest = pd.DataFrame([[z,p] for z,p in normtest.values],columns = ['zscore','pval']).set_index(normtest.index)
-df_normtest['reject'] = df_normtest.pval < alpha
-
-print('Normality tests: \n',df_normtest)
-
-import statsmodels.api as sm
-from statsmodels.formula.api import ols
-
-cw_lm = ols('deltaT ~ C(variable)', data=df_m_s.loc[df_m_s.year==2021]).fit() #Specify C for Categorical
-print(sm.stats.anova_lm(cw_lm, typ=2))
-
-# Tukey HSD
-# sample 1 % of observations (= 200) per plant community and year
-df_sample = df_m_s.groupby(['variable','year']).sample(frac = 0.01,
-                                                       random_state = seed)
-
-from statsmodels.stats.multicomp import MultiComparison
-mc20,mc21 = df_sample.loc[(df_sample.variable != 'water') & 
-                          (df_sample.variable != 'mud')].groupby(['year']).apply(lambda x: MultiComparison(x[xvar], x[group_var]))
-
-# Save test results in dataframe (for significance brackets in plot)
-thsd = pd.DataFrame(data = mc21.tukeyhsd()._results_table.data[1:], 
-                    columns = mc21.tukeyhsd()._results_table.data[0])
-
-print('2021: \n', mc21.tukeyhsd(), end = '\n')                                                                                       
-                                                                                           
-# Bonferroni adjusted pair tests
-# print('2021: \n', mc21.allpairtest(ttest_ind, method = 'bonf')[0], end = '\n')
-
-PATH_SAVE = fr'.\figures_and_maps\thermoregulation\densityplot_2021_{site}_{xvar}.png'
-
-ax = PlotDensities(df_m_s, xvar,PATH_SAVE,
-                   xlim = xlim,
-                   colors = colordict,
-                   showSignif = True, data_pairtest = thsd,
-                   order = label_order,
-                   showTair = False, showWater = False,
-                   showBothYears = False,
-                   saveFig = False)
-
-if saveresults:
-    thsd.to_csv(f'./results/statistics/difference_tests/testtable_2021_{site}_{xvar}.csv', sep=';', index = False)
-
-# %% 1 b. DENSITY PLOT IN BOTH YEARS
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-xvar = 'wdi'
-PATH_SAVE = fr'.\figures_and_maps\thermoregulation\densityplots_bothyears_{site}_{xvar}.png'
-
-PlotDensities(df_m_s, xvar,PATH_SAVE,
-              colors = colordict,
-              showSignif = False,
-              showTair = False, showWater = True,
-              showBothYears = True,
-              saveFig = False)
-
-# %% 3. BOXPLOT IN BOTH YEARS
+# %% 2. BOXPLOT IN BOTH YEARS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~
 yvar = 'wdi'
 
-saveresults = False
-
-# Generate descripitve statistics and save as csv
-df_wdi_iqr = df_m_s.groupby(['year','variable'])['wdi'].quantile([.25,.75]).unstack()
-df_wdi_iqr['iqr'] = df_wdi_iqr[.75] - df_wdi_iqr[.25]
-
-# sample random observations per plant community and year to avoid effect of large sample
-df_sample = df_m_s.groupby(['variable','year']).sample(frac = 0.01,
-                                                       random_state = seed)
-
-# t-test between years
-from scipy.stats import ttest_ind, ttest_rel
-alpha = .05
-
-# Welch's ttest for unequal variances
-ttest = df_sample.groupby(['variable']).apply(lambda x: ttest_ind(x.loc[x.year==2020,yvar],
-                                                                  x.loc[x.year==2021,yvar], 
-                                                                  equal_var=False))
-df_ttest = pd.DataFrame([[z,p] for z,p in ttest.values],columns = ['tstat','pval']).set_index(ttest.index)
-df_ttest['reject'] = df_ttest.pval < alpha
-df_ttest.loc[df_ttest.pval < 0.01,'text'] = '< 0.01'
-
-# Mean WDI differences between years for each group
-df_ttest['meandiff'] = df_sample.groupby(['variable']).apply(lambda x: round(x.loc[x.year == 2020,'wdi'].mean() - x.loc[x.year == 2021,'wdi'].mean(),2))
-
-# ttest for two dependent samples
-ttest_rel = df_sample.groupby(['variable']).apply(lambda x: ttest_rel(x.loc[x.year==2020,yvar],
-                                                                         x.loc[x.year==2021,yvar]))
-df_ttest_rel = pd.DataFrame([[z,p] for z,p in ttest_rel.values],columns = ['tstat','pval']).set_index(ttest_rel.index)
-df_ttest_rel['reject'] = df_ttest_rel.pval < alpha
-
-
-PATH_SAVE = fr'..\..\figures_and_maps\thermoregulation\{site}_{yvar}_boxplots.png'
-
-ax = PlotBoxWhisker(df_m_s, yvar,
-                   label_order = label_order,
-                   colors = colordict,
-                   showSignif=True,data_ttest = df_ttest,
-                   showWater = False,
-                   PATH_OUT=PATH_SAVE,
-                   saveFig = False)
-
-# Multicomparison of WDI differences per plant community
-mask = np.logical_and(df_m_s.variable != 'water',
-                      df_m_s.variable != 'mud'
-                      )
-df_sample_2 = df_m_s.loc[df_m_s.year == 2020].loc[mask].sample(frac = 0.01,random_state = seed)
-
-mc_wdi = MultiComparison(df_sample_2['diff_wdi'], df_sample_2['variable'])
-print(mc_wdi.tukeyhsd())
-
-# Save test results in dataframe (for significance brackets in plot)
-thsd = pd.DataFrame(data = mc_wdi.tukeyhsd()._results_table.data[1:], 
-                    columns = mc_wdi.tukeyhsd()._results_table.data[0])
-
-if saveresults:
-    df_wdi_iqr.to_csv(f'./results/statistics/map_stats/{site}_{yvar}_quartiles.csv', sep = ';')
-    df_ttest.to_csv(f'./results/statistics/difference_tests/{site}_{yvar}_testtable.csv', sep = ';')
-    thsd.to_csv(f'./results/statistics/difference_tests/testtable_wdi_diff_{site}.csv', sep=';', index = False)
-
-# %% deltaT along transect for two years
-if False:
-    from matplotlib.lines import Line2D
-    transect_y = 702
+for i,site in enumerate(sites):
+    print(f'Generating subplot in {site} for Figure 1...')   
     
-    def map_func(val):
-        return classdict[val]
-    named_array = np.vectorize(map_func)(I_cl_s[1200:1700,transect_y])
-    
-    plt.plot(ScaleMinMax(I_tir_20_s)[1200:1700,transect_y],
-             label = '2020',c = 'k')
-    plt.scatter(np.arange(0,500),
-                ScaleMinMax(I_tir_20_s)[1200:1700,transect_y],
-                color = [colordict[x] for x in named_array])
-    points = plt.plot(ScaleMinMax(I_tir_21_s)[1200:1700,transect_y],
-                      label = '2021',ls = '--',c = 'k')
-    scatter = plt.scatter(np.arange(0,500),
-                          ScaleMinMax(I_tir_21_s)[1200:1700,transect_y],
-                          c = [colordict[x] for x in named_array])
-    
-    # Define custom legend handles and labels
-    handles = []
-    labels = []
-    
-    for category in np.unique(named_array):
-        marker_handle = Line2D([0], [0], linestyle='none', marker='o', color=colordict[category])
-        handles.append(marker_handle)
-        labels.append(category)
+    df_m_s = df_list[i]
         
-    for year, linestyle in zip(['2020', '2021'], ['-', '--']):
-        line_handle = Line2D([0], [0], color='k', ls=linestyle, lw=1)
-        handles.append(line_handle)
-        labels.append(year)
+    # Generate descripitve statistics of water deficit index and save as csv
+    df_wdi_iqr = df_m_s.groupby(['year','variable'])['wdi'].quantile([.25,.75]).unstack()
+    df_wdi_iqr['iqr'] = df_wdi_iqr[.75] - df_wdi_iqr[.25]
+    df_wdi_iqr.to_csv(f'./tables/results/Table_S_{site}.csv', sep = ';')
     
-    # Add custom legend to the plot
-    plt.legend(handles=handles, labels=labels, bbox_to_anchor=(1.05, 1.03), loc='upper left')
+    # sample random observations per plant community and year to avoid effect of large sample
+    df_sample = df_m_s.groupby(['variable','year']).sample(frac = 0.01,
+                                                           random_state = seed)
     
-    # Add inset axes for the image
-    ax = plt.axes([.7, 0.1, 0.35, 0.35]) # [left, bottom, width, height]
-    ax.imshow(ScaleMinMax(I_tir_21_s), cmap = cm.lajolla)
-    ax.axhline(transect_y,c = 'blue')
-    ax.axis('off')
+    # t-test between years
+    alpha = .05
     
-    plt.suptitle('$\Delta T_{surf - air}$ along transect for two years')
-    plt.tight_layout() # adjust spacing to make room for the legend
-    plt.show()
+    # Welch's ttest for unequal variances
+    ttest = df_sample.groupby(['variable']).apply(lambda x: ttest_ind(x.loc[x.year==2020,yvar],
+                                                                      x.loc[x.year==2021,yvar], 
+                                                                      equal_var=False))
+    df_ttest = pd.DataFrame([[z,p] for z,p in ttest.values],columns = ['tstat','pval']).set_index(ttest.index)
+    df_ttest['reject'] = df_ttest.pval < alpha
+    df_ttest.loc[df_ttest.pval < 0.01,'text'] = '< 0.01'
+    
+    # Mean WDI differences between years for each group
+    df_ttest['meandiff'] = df_sample.groupby(['variable']).apply(lambda x: round(x.loc[x.year == 2020,'wdi'].mean() - x.loc[x.year == 2021,'wdi'].mean(),2))
+    
+    # ttest for two dependent samples
+    ttest_rel = df_sample.groupby(['variable']).apply(lambda x: ttest_rel(x.loc[x.year==2020,yvar],
+                                                                             x.loc[x.year==2021,yvar]))
+    df_ttest_rel = pd.DataFrame([[z,p] for z,p in ttest_rel.values],columns = ['tstat','pval']).set_index(ttest_rel.index)
+    df_ttest_rel['reject'] = df_ttest_rel.pval < alpha
+    
+    
+    PATH_SAVE = f'../figures/Fig_3_{site}.png'
+    
+    ax = PlotBoxWhisker(df_m_s, yvar,
+                       label_order = label_order,
+                       colors = colordict,
+                       showSignif=True,data_ttest = df_ttest,
+                       showWater = False,
+                       PATH_OUT=PATH_SAVE,
+                       saveFig = False)
+    
+    # Multicomparison of WDI differences per plant community
+    mask = np.logical_and(df_m_s.variable != 'water',
+                          df_m_s.variable != 'mud'
+                          )
+    df_sample_2 = df_m_s.loc[df_m_s.year == 2020].loc[mask].sample(frac = 0.01,random_state = seed)
+    
+    mc_wdi = MultiComparison(df_sample_2['diff_wdi'], df_sample_2['variable'])
+    print(mc_wdi.tukeyhsd())
+    
+    # Save test results in dataframe (for significance brackets in plot)
+    thsd = pd.DataFrame(data = mc_wdi.tukeyhsd()._results_table.data[1:], 
+                        columns = mc_wdi.tukeyhsd()._results_table.data[0])
+    
+    # Export{site}_{yvar}_testtable
+    df_ttest.to_csv(f'./tables/results/Table_S_{site}.csv', sep = ';')
+    # Exporttesttable_wdi_diff_{site}
+    thsd.to_csv(f'./tables/results/Table_S_{site}.csv', sep=';', index = False)
 
 # %% 4. COMPUTE FCOVER IN 1.5 x 1.5 m QUADRATS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -393,7 +312,6 @@ def GetFcover(dA_cl, dA_tir):
         df.loc[i,'sigmaT'] = np.nanstd(xr.where(dA_cl == cl, dA_tir,np.nan))
     
     return df
-
 
 def MapFcover(windowsize, dA_classes, dA_thermal):
     df_out = pd.DataFrame(columns = ['classes','count','fcover','meanT','sigmaT'])
@@ -854,16 +772,17 @@ fig.text(-0.01, 0.5, 'Semivariance (matheron)', va='center', rotation='vertical'
 fig.tight_layout()
 fig.savefig('./figures_and_maps/thermal_mosaics/Fig_S_semivariogram.png',dpi = 200,bbox_inches = 'tight', facecolor='white')
 
-# %% 6 g. TOMST differences
+# %% 6 g. TOMST TMS-4 differences
 try:
     any(df_tmst_delta)
 except:
-    print('Loading data...')
-    sys.path.append(r"C:/Users/nils/OneDrive - Universität Zürich UZH/Dokumente 1/1_PhD/5_CHAPTER1/code/")
+    print('Loading TMS-4 data...')
     
-    import importer
-    df_hobo_tlb,df_hobo_ridge, df_fluxtower, df_tmst, df_tmst_delta, df_tmst_h, df_tmst_d, loggers = importer.load_all()
-
+    df_tmst_delta = pd.read_csv('./tables/data_allobs_alldelta.csv',
+                      header = [0],index_col = [0],
+                      sep=';',parse_dates = True)
+    df_tmst_delta.index = df_tmst_delta.index.tz_convert('Asia/Srednekolymsk')
+    
 # Aggregate data by Logger_SN and calculate mean
 def aggregate_func(df):
     return pd.merge(
@@ -896,7 +815,7 @@ lbl = {'water':'Open water',
        'tussocksedge': 'TS'}
 
 # dT_air = ["dT2T3","dT1Tair",  "dT2Tair",  "dT3Tair" ]
-col_titles = ['$T_2 - T_3$', '$T_1 - T_{air}$', '$T_2 - T_{air}$', '$T_3 - T_{air}$']
+# col_titles = ['$T_2 - T_3$', '$T_1 - T_{air}$', '$T_2 - T_{air}$', '$T_3 - T_{air}$']
 
 dT_air = ["dT2Tair"]
 col_titles = ['$T_2 - T_{air}$']
@@ -968,192 +887,3 @@ for s in ['TLB','Ridge']:
         i += 1
 # df_out.round(2).to_csv(f'./results/statistics/Suppl_Table_TOMST_{text}_Drone_reldiffs.csv',sep = ';')
 print(df_out)
-
-# %% 6 h. Correlations soil moisture dT2Tair
-
-from sklearn.preprocessing import StandardScaler
-from scipy.stats import pearsonr
-
-df = df_tmst_delta.between_time('11:00','13:30')
-# df = df_tmst_delta.loc["2021-07-19"].between_time('13:50','16:30').dropna()
-
-# Scale the soilmoisture column
-scaler = StandardScaler()
-df['soilmoisture_scaled'] = scaler.fit_transform(df[['soilmoisture']])
-
-def aggregate_func(df):
-    df1 = df.groupby('Logger_SN').resample('D').mean().reset_index(drop = True)
-    df1['Logger_SN'] = df1.Logger_SN.astype(np.int64)
-    df2 = df.groupby('Logger_SN').resample('D').agg(lambda x: x[0])[['custom_class','site']].reset_index()
-    df1 = df1.sort_values('Logger_SN')
-    df2 = df2.sort_values('Logger_SN')
-    df1[['custom_class','site']] = df2[['custom_class','site']]
-    return df1
-
-df_agg = aggregate_func(df)
-df_agg = df_agg.dropna()
-
-# Calculate the Pearson correlation coefficient and p-value between temperature and soilmoisture
-grouped = df_agg.groupby(['site','custom_class'])
-corr, pval = grouped['dT2Tair', 'soilmoisture_scaled'].apply(lambda x: pearsonr(x.dT2Tair, x.soilmoisture_scaled)).apply(pd.Series).values.T
-
-# Extract the correlation coefficient and p-value for each class
-result = pd.DataFrame({'site': grouped.groups.keys(),
-                       'class': grouped.groups.keys(),
-                       'corr': corr,
-                       'pval': pval})
-
-g = sns.FacetGrid(df_agg, row='custom_class', col='site',
-                  aspect = 1,height = 5)
-
-# Add a scatterplot to the FacetGrid
-g.map(plt.scatter, 'dT2Tair', 'soilmoisture_scaled')
-g.set_titles(col_template="{col_name}")
-g.set_titles(row_template="{row_name}")
-
-# Display the plot
-plt.show()
-
-print(result)
-
-# %% Get TOMST vs. LST data plots
-from pyproj import Transformer,Proj
-
-import sys
-sys.path.append(r"C:/Users/nils/OneDrive - Universität Zürich UZH/Dokumente 1/1_PhD/5_CHAPTER1/code/")
-
-import importer
-df_hobo_tlb,df_hobo_ridge, df_fluxtower, df_tmst, df_tmst_delta, df_tmst_h, df_tmst_d, loggers = importer.load_all()
-df_hobo = df_hobo_tlb
-
-def trans_fct(row):
-    x1,y1 = p1(row.Lon_dd, row.Lat_dd)
-    x,y = transformer.transform(y1, x1)
-    return x,y
-
-transformer = Transformer.from_crs("epsg:4326",'epsg:32655' )
-p1 = Proj("epsg:4326")
-
-loggers.loc[:,['lon_utm','lat_utm']] = loggers.loc[:,['Lat_dd','Lon_dd']].apply(trans_fct, 
-                                                                          axis=1, 
-                                                                          result_type='expand').values
-
-# %% 
-from tqdm import tqdm
-def FetchImageData(Raster, lons, lats):
-    buffer = 5 # nr of pixels around the coordinate to account for: 5 --> 5*15cm = 75 cm on each side
-    res = .15 * buffer
-    subset = [Raster.sel(x = slice(x-res,x+res),
-                        y = slice(y+res,y-res),
-                        # method = 'nearest'
-                        ).mean().values for x,y in tqdm(zip(lons,lats))]
-    return subset
-
-if site == 'TLB':
-    idx_name = 'lakebed'
-    
-    data_droneday = df_tmst.loc['19-7-2021']
-    data_droneday.index = data_droneday.index.tz_convert('Asia/Srednekolymsk').rename('local_time')
-
-    data_flights = data_droneday.between_time('13:30','14:30')
-    data_flights.loc[data_flights.site == 'lakebed'].groupby(['Logger_SN','site']).mean().sort_index(level=1)
-
-
-    TIR_21_TOMSTloc = pd.DataFrame({'TIR':np.hstack(FetchImageData(dA_tir21, 
-                                                         loggers.loc[loggers.site == 'lakebed','lon_utm'],
-                                                         loggers.loc[loggers.site == 'lakebed','lat_utm'])),
-                                    'Logger_SN' : loggers.loc[loggers.site == 'lakebed','TOMST_serial_number'].astype(str)})
-    TLB_LoggerSN = loggers.loc[loggers.site == 'lakebed','TOMST_serial_number'].astype(str)
-
-    TOMST_flightmeans = data_flights.loc[np.isin( data_flights.Logger_SN.values,TLB_LoggerSN.values),:].groupby(['Logger_SN']).mean().sort_index(level=1)
-    df = pd.merge(TOMST_flightmeans,TIR_21_TOMSTloc,left_on='Logger_SN', right_on='Logger_SN')
-    
-elif site == 'Ridge':
-    idx_name = 'ridge'
-    
-    data_droneday = df_tmst.loc['19-7-2021']
-    data_droneday.index = data_droneday.index.tz_convert('Asia/Srednekolymsk').rename('local_time')
-
-    data_flights = data_droneday.between_time('13:30','14:30')
-    data_flights.loc[data_flights.site == idx_name].groupby(['Logger_SN','site']).mean().sort_index(level=1)
-
-
-    TIR_21_TOMSTloc = pd.DataFrame({'TIR':np.hstack(FetchImageData(dA_tir21, 
-                                                         loggers.loc[loggers.site == idx_name,'lon_utm'],
-                                                         loggers.loc[loggers.site == idx_name,'lat_utm'])),
-                                    'Logger_SN' : loggers.loc[loggers.site == idx_name,'TOMST_serial_number'].astype(str)})
-    TLB_LoggerSN = loggers.loc[loggers.site == idx_name,'TOMST_serial_number'].astype(str)
-
-    TOMST_flightmeans = data_flights.loc[np.isin( data_flights.Logger_SN.values,TLB_LoggerSN.values),:].groupby(['Logger_SN']).mean().sort_index(level=1)
-    df = pd.merge(TOMST_flightmeans,TIR_21_TOMSTloc,left_on='Logger_SN', right_on='Logger_SN')
-
-
-elif site == 'CBH':
-    print('No TOMST data in cloudberry hills')
-
-# %% Plot TOMST temperatures vs. LST
-import scipy as sp
-
-sns.set_theme(style="ticks", 
-              rc={"figure.figsize":(10, 10)},
-              font_scale = 2)
-
-df_p = df.loc[:,['T1','T2','T3']].melt()
-df_p['LST'] = np.hstack([df.TIR.values] * 3) #[df.TIR.values] * 3
-ax = sns.lmplot(df_p, x = 'LST',y = 'value', hue = 'variable',height=6, aspect=1.5)
-ax.set(
-       # xlim = [25,35],
-       # ylim = [2,35],
-       xlabel = 'Land surface temperature (°C)',
-       ylabel = 'TMS-4 temperature (°C)')
-# ax.legend.set_title('TMS-4 level')
-sns.move_legend(ax, "upper left", bbox_to_anchor=(.85, .65), title='TMS-4 level')
-
-r, p = sp.stats.pearsonr(df.TIR, df.T2)
-print('T2 vs. TIR r =',r)
-r, p = sp.stats.pearsonr(df.TIR, df.T3)
-print('T3 vs. TIR r =',r)
-# plt.savefig(r'.\figures_and_maps\thermoregulation\TLB_TIR_vs_TOMST.png',
-#             bbox_inches = 'tight')
-
-
-
-# %%
-tomst_vars = ['T1','T2','T3','soilmoisture']
-hobo_vars  = ['temperature_15cm', 'rh_15cm', 'temperature_60cm', 'rh_60cm','precipitation', 'light_intensity_lux']
-T_levels = ['T1 - T3','T1 - T2','T2 - T3','T3 - Tair','T2 - Tair','T1 - Tair']
-all_vars = tomst_vars + T_levels + hobo_vars
-
-df_daytime_delta = df_tmst_delta.between_time('07:01','20:00')
-df_nighttime_delta = df_tmst_delta.between_time('20:01','07:00')
-
-mean_hourly_deltaT = df_daytime_delta.groupby('Logger_SN',as_index=True)[T_levels].resample('.5H').mean()
-mean_hourly_deltaT = mean_hourly_deltaT.reset_index(level=0,drop=False)
-mean_hourly_illum = df_hobo.light_intensity_lux.resample('.5H').mean()
-
-mean_hourly_deltaT.loc[:,'CAVM_class'] = codes_out.ids.replace(to_replace=np.unique(codes), value=classes)
-
-df_p = pd.concat([mean_hourly_illum.loc[mean_hourly_deltaT.index],
-              mean_hourly_deltaT],axis=1)
-
-illum_cat = pd.qcut(df_p.light_intensity_lux,[0,.8,1],['cloudy','sunny'])
-df_pp = pd.concat([df_p,illum_cat],axis=1)
-
-df_pp.columns = ['light_intensity_lux', 'Logger_SN', 'T1 - T3', 'T1 - T2', 'T2 - T3',
-       'T3 - Tair', 'T1 - Tair', 'soilmoisture', 'CAVM_class',
-       'light_conditions']
-
-fig,axs = plt.subplots(5,1,figsize = (10,18),sharex=True)
-for ax,T_level in zip(axs,['T1 - T3','T1 - T2','T2 - T3','T3 - Tair','T1 - Tair']):
-    sns.boxplot(x="CAVM_class", y=T_level,
-            hue="light_conditions", palette=["gray", "yellow"],
-            data=df_pp,
-               ax=ax)
-    ax.set(xlabel = '',
-          ylim = [-20,10])
-    ax.get_legend().remove()
-plt.legend(loc="lower center", bbox_to_anchor=(0.5, -.5))
-
-
-
-
