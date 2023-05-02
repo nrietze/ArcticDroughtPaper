@@ -1,8 +1,9 @@
 # -*- coding: utf-8 -*-
 """
-Created on Fri Aug  5 14:09:36 2022
+Prepare the multispectral drone imagery for the classification
 
-@author: nils
+Author: Nils Rietze - nils.rietze@uzh.ch
+Created: 24.04.2023
 """
 
 # imports
@@ -74,7 +75,7 @@ for year in [2020,2021]:
                 
                 # Read multispectral data as numpy array
                 msp = imread(FNAME_MSP)
-                msp = np.ma.masked_equal(msp,0.) # Mask no data values (0) 
+                msp = np.ma.masked_less_equal(msp,0.) # Mask no data values (0) 
 
                 # Read multispectral data as rasterio array
                 I_msp = rxr.open_rasterio(FNAME_MSP)
@@ -100,8 +101,7 @@ for year in [2020,2021]:
                 bcc = blue /  (red + green + blue )
                
                 # Export the individual index rasters in GeoTiff format
-                out_list = [ndvi,
-                            rcc,gcc,bcc] 
+                out_list = [ndvi,rcc,gcc,bcc] 
                 
                 for i, var in enumerate(['NDVI','RCC','GCC','BCC']):
                     fname_out = f"./indices/{site}_{var}_{year}.tif" 
@@ -164,18 +164,16 @@ for year in [2020,2021]:
             src = rasterio.open(FNAME_MSP) 
             
             # Load land cover polygons 
-            if year == 2020:
-                shapefile = gpd.read_file('../shapefiles/2020_training_polygons.shp')
-            else:
-                # Check if GLCM files are available, if not then generate those in R first
-                try: 
-                    FLIST_GLCM = glob('./indices/*GLCM*.tif')
-                    # run dummy test to see if any GLCM files are around
-                    rxr.open_rasterio(FLIST_GLCM[0])
-                except:
-                    print("No GLCM files found. Please prepare the GLCM files first!")
-                    break
-                shapefile = gpd.read_file('../shapefiles/training_polygons.shp')
+            shapefile = gpd.read_file(f'../shapefiles/{year}_polygons.shp')
+            
+            # Check if GLCM files are available, if not then generate those in R first
+            try: 
+                FLIST_GLCM = glob('./indices/*GLCM*.tif')
+                # run dummy test to see if any GLCM files are around
+                rxr.open_rasterio(FLIST_GLCM[0])
+            except:
+                print("No GLCM files found. Please prepare the GLCM files first!")
+                break
             
             project_area = gpd.read_file(f'../shapefiles/{site.lower()}_project_area.shp')
             
@@ -192,8 +190,6 @@ for year in [2020,2021]:
             gdfOut = pd.concat(dfs).reset_index()
             gdfOut = gdfOut.set_crs(src.crs.data['init'])
             
-            print('Fetching image data...', end = '\n')
-            
             gdfOut.rename(columns = {'Classname':'label',
                                      'x':'lon_utm', 
                                      'y':'lat_utm'}, inplace = True)
@@ -202,6 +198,7 @@ for year in [2020,2021]:
             I_msp = rxr.open_rasterio(FNAME_MSP)
             
             # Retrieve reflectances from multispectral raster and add to geoDataFrame
+            print('Fetching image data from MSP bands...', end = '\n')
             gdfOut.loc[:, ["b","g","r","re","nir"]] = FetchImageData(I_msp, gdfOut.lon_utm, gdfOut.lat_utm)
             
             FNAME_MSP_INDEXSTACK = f"./indices/{site}_msp_index_stack_{year}"
@@ -211,17 +208,21 @@ for year in [2020,2021]:
             index_stack_vars = I_msp_ind.long_name # ["bcc","gcc","ndvi","rcc"] + glcmnames
             
             # Retrieve indices from multispectral index raster and add to geoDataFrame
+            print('Fetching image data from MSP indexes...', end = '\n')
             gdfOut.loc[:,index_stack_vars] = FetchImageData(I_msp_ind, gdfOut.lon_utm, gdfOut.lat_utm)
             
             # Retrieve GLCM values from GLCM raster and add to geoDataFrame
             if year == 2021:
-                FLIST_GLCM = glob('./indices/*GLCM*.tif')
+                FLIST_GLCM = glob(f'./indices/{site}_*GLCM*.tif')
                 
                 for FNAME_GLCM in FLIST_GLCM:
                     with rxr.open_rasterio(FNAME_GLCM) as I_glcm:
                         # mean, variance, homogeneity, dissimilarity
                         glcm_stats = ["m", "v", "h","d"] 
-                        glcm_varnames = ['{}_{}'.format(a, FNAME_GLCM.split('_')[2]) for a in glcm_stats]
+                        spectral_name = FNAME_GLCM.split('_')[2]
+                        glcm_varnames = [f'{a}_{spectral_name}' for a in glcm_stats]
+                        
+                        print(f'Fetching image data from {spectral_name} GLCMs ...', end = '\n')
                         gdfOut.loc[:,glcm_varnames] = FetchImageData(I_glcm, gdfOut.lon_utm, gdfOut.lat_utm)
             
             # Export geoDataFrame to shapefile (MultiPoint)
@@ -231,7 +232,7 @@ for year in [2020,2021]:
             gdfOut.to_file(f'../shapefiles/{year}_{site}_points.shp',
                            driver='ESRI Shapefile', schema=schema)
             
-        print('done.', end='\n')
+        print(f'done for {site}.', end='\n')
     
     # Concatenate all trainingpoints into one dataframe:
     FLIST_TRAININGPOINTS = glob(f'../shapefiles/{year}_*_points.shp')

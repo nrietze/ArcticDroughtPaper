@@ -1,6 +1,5 @@
-"""Custom functions
-
-<Long description>
+"""
+Custom functions used in the preparation and classificaiton.
 
 Author: Nils Rietze - nils.rietze@uzh.ch
 Created: 24.04.2023
@@ -29,19 +28,22 @@ def fitting_rf_for_region(labdat, featurenames, excl_low_imp, plot_importance = 
 
     Parameters
     ----------
-    labdat : TYPE
-        DESCRIPTION.
-    featurenames : TYPE
-        DESCRIPTION.
-    excl_low_imp : TYPE
-        DESCRIPTION.
-    plot_importance : TYPE, optional
-        DESCRIPTION. The default is False.
+    labdat : pandas.DataFrame
+        DataFrame with the training datat for the RF classifier, is produced in the
+        1_1_prep_classification.py and exported to shapefiles. A column named
+        'label' needs to be included, which has all the training labels of the data points.
+    featurenames : list
+        List with the column names of the spectral features (e.g. BCC, NDVI) 
+        in labdat that are used in the RF classifier.
+    excl_low_imp : bool
+        Whether the RF classifier is excluding the features with low importance.
+    plot_importance : bool, optional
+        Plots the variable importance as bar charts. The default is False.
 
     Returns
     -------
     dict
-        DESCRIPTION.
+        A dictionary with the classifier and featurenames.
 
     """
     # fitting the Random Forest classifier on the training data (labelled points) from the current region
@@ -247,3 +249,15 @@ def ExtractFromMultipolygon(gdfRow, tif, Dataname: str):
 
     nsamples = min(len(d),200)
     return d.sample(nsamples,random_state = 11)
+
+# --------------------------------------
+from skimage.io import imread
+
+def GatherGLCM(FNAME_GLCM):
+    glcm = imread(FNAME_GLCM)
+    glcm_stats = ["m", "v", "h","d"] # mean, variance, homogeneity, dissimilarity
+    spectral_name = FNAME_GLCM.split('_')[2]
+    glcm_varnames = [f'{a}_{spectral_name}' for a in glcm_stats]
+    df = pd.DataFrame(glcm.reshape(glcm.shape[0]*glcm.shape[1], glcm.shape[2]), 
+                   columns = glcm_varnames)
+    return df
