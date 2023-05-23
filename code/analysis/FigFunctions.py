@@ -22,10 +22,11 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
                   PATH_OUT: str,
                   saveFig: bool,
                   colors: dict,
-                  ax = None, xlim = None,
-                  showSignif = True, data_pairtest = None,
+                  ax = None, 
+                  xlim = None,
+                  showSignif = True,
+                  data_pairtest = None,
                   order = None,
-                  showTair = False,T_air = None,
                   showWater = True,
                   showBothYears = False ):
     
@@ -42,21 +43,29 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         data.loc[:,'variable'] = data.variable.cat.set_categories(order, ordered=True)
         
         colors = {x: colors[x] for x in colors if x not in ['water','mud']}
-
+    else:
+        mask = data.variable != 'mud'
+        data = data[mask]
+        order = [x for x in order if x not in ['mud']]
+        data.loc[:,'variable'] = data.variable.cat.set_categories(order, ordered=True)
+        
+        colors = {x: colors[x] for x in colors if x not in ['mud']}
+        
     lw = 5
     
-    xlab = 'Standardized $T_{surf}$ - $T_{air}$ (-)' if xvar == 'stdT' else '$T_{surf}$ - $T_{air}$ (°C)'
+    xlab = 'Water deficit index (-)' if xvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)'
     
     lbl = {'water':'Open water',
            'mud': 'Mud',
-           'LW1': 'LW1',
-           'LW2': 'LW2', 
-           'HP2': 'HP2', 
-           'HP1': 'HP1',
-           'TS': 'TS'}
+           'LW1': '$\\bf{LW1}$: Low-centered \nwetland complex (bottom)',
+           'LW2': '$\\bf{LW2}$: Low-centered \nwetland complex (top)', 
+           'HP2': '$\\bf{HP2}$: High-centered \npolygons (dwarf birch)', 
+           'HP1': '$\\bf{HP1}$: High-centered \npolygons (dry sedges and lichen)',
+           'TS': '$\\bf{TS}$: Tussock – sedge'}
     
     if showBothYears:
-        if ax == None:
+        if ax == None: # create new axis instance
+            # Plot densities for 2020
             ax = sns.kdeplot(data = data[data.year==2020],
                              x=xvar, hue="variable",
                              fill=False, 
@@ -64,7 +73,8 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
                              palette=colors,
                              alpha=1, linewidth=lw,
                              legend = False)
-        else: 
+        else:  # plot on existing axis instance (for multipanel figure)
+            # Plot densities for 2020
             sns.kdeplot(data = data[data.year==2020],
                         ax = ax,
                         x=xvar, hue="variable",
@@ -73,8 +83,15 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
                         palette=colors,
                         alpha=1, linewidth=lw,
                         legend = False)
+        
+        # set axis labels
+        ax.set(xlabel = xlab,
+               ylabel = 'Kernel density estimate')
+            
+        # Make 2020 densities dashed
         [L.set_linestyle('--') for L in ax.get_lines()]
 
+        # Plot densities for 2021
         ax2 = sns.kdeplot(data = data[data.year==2021],
                     x=xvar, hue="variable",
                     fill=False, 
@@ -83,23 +100,22 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
                     alpha=1, linewidth=lw,
                     ax = ax,
                     legend = True)
-        ax.set( xlabel = xlab,
-               ylabel = 'Kernel density estimate')
 
-        # legend_lines = ax.lines[4:] 
+        # set legend icons and add line indicator
         legend = ax.get_legend()
         handles = legend.legendHandles + [Line2D([0], [0], color='k',alpha = 0, ls='--', lw = lw),
                                           Line2D([0], [0], color='k', ls='--', lw = lw),
                                           Line2D([0], [0], color='k', ls='-', lw = lw)]
         
-        labels_adj = [lbl[t.get_text()] for t in legend.texts]
+        # set adjusted labels for legend
+        labels_adj = [lbl[t.get_text()] for t in legend.texts] + ['',2020,2021]
         
         leg = ax.legend(handles = handles, 
-                  labels = labels_adj + ['',2020,2021],
-                  ncol = 2, loc = 'center right',
-                  fontsize=20
+                  labels = labels_adj ,
+                  loc='center left', bbox_to_anchor=(1.05, 0.5),
+                  fancybox=True, shadow=True, ncol=2
                   )
-    else:   
+    else: # if only 2021 is displayed
         if ax == None:
             ax = sns.kdeplot(data = data[data.year==2021],
                              x = xvar, hue="variable",
@@ -129,7 +145,6 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         # get x-coords for significance bar corners
         xs = data[data.year==2021].groupby('variable')[xvar].mean()
         
-        import statistics
         # xs = data[data.year==2021].groupby('variable')[xvar].apply(statistics.mode)
         xs = xs[~xs.index.isin(['water'])]
         
@@ -186,15 +201,6 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
             
             i += 1
             
-    if showTair:
-        ax.axvline(0, c = 'lightgray', ls = '--', lw = lw)
-        ax.annotate('$T_{air}$ = %.1f °C' % T_air ,
-                    (0 + 2 ,yax_max/2), 
-                    color = 'lightgray',
-                    verticalalignment='center_baseline', horizontalalignment='center',
-                    rotation = 90,
-                    fontsize = 30)
-        
     x_min = np.floor( round(np.quantile(data[xvar],.001),1) )
     x_max = np.ceil( round(np.quantile(data[xvar],.999),1) ) + 1 if xvar == 'Tdiff' else 1
         
@@ -204,6 +210,9 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         ax.set(xlim = xlim)
     
     ax.set(xlabel = xlab)
+    
+    # Adjust the position of the x-axis tick labels by moving them down
+    ax.tick_params(axis='x', pad=20) 
     
     sns.despine()
     ax.grid(False)
@@ -216,19 +225,20 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         # Set Order of legend items manually: (unused, because variable is now categorical)
         handles = legend.legendHandles
         labels_adj = [lbl[t.get_text()] for t in legend.texts]
-        ax.legend(handles,labels_adj)
+        ax.legend(handles,labels_adj,
+                  loc='center left', bbox_to_anchor=(1.05, 0.5),
+                  fancybox=True, shadow=True, ncol=1)
         
     ax.legend_.set_title('$\\bf{Plant \; community}$')
     ax.legend_._legend_box.align = "left"
-    
+
     # Master legend switch
-    ax.get_legend().remove()
+    # ax.get_legend().remove()
     
     if saveFig:
         plt.savefig(PATH_OUT,bbox_inches = 'tight',dpi=300)
     
-    return ax
-    plt.show()
+    return handles, labels_adj, ax
 
 # %% BOXPLOT FUNCTION
 # ========================
@@ -277,7 +287,19 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
         colors = {x: colors[x] for x in colors if x not in ['water','mud']}
         
         xticklabs = [lbl[t] for t in label_order]
-    
+        
+    # Mask out mud
+    else:
+        label_order = [x for x in label_order if x not in ['mud']]
+        
+        mask = data.variable != 'mud'
+        data = data[mask]
+        data.loc[:,'variable'] = data.variable.cat.set_categories(list(data.variable.unique()), ordered=True)
+        
+        colors = {x: colors[x] for x in colors if x not in ['mud']}
+        
+        xticklabs = [lbl[t] for t in label_order]
+        
     if ax == None:
         ax = sns.boxplot(data = data, 
                          x = 'variable', y = yvar,
@@ -290,13 +312,13 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
                     hue = 'year', order = label_order,
                     ax = ax,
                     fliersize=0.1)
-    ylab = 'Water deficit index (-)' if yvar == 'stdT' else '$T_{surf}$ - $T_{air}$ (°C)' # 'Standardized $T_{surf}$ - $T_{air}$ (-)'
+    ylab = 'Water deficit index (-)' if yvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)' # 'Standardized $T_{surf}$ - $T_{air}$ (-)'
     
     ax.set(ylabel = ylab,
            xlabel = '',
            xticklabels = xticklabs)
     
-    if yvar == 'stdT':
+    if yvar == 'wdi':
         ax.set_ylim([0,1]) 
     
     ax.tick_params(axis = 'both', top=True, labeltop=True,
@@ -350,7 +372,7 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
                     length = 0)
     
     axB.set_xticks([-.25 + .5 * i for i in range(N_cats*2)])
-    axB.set_xticklabels([' 2020 \n dry','  2021 \n wetter'] * N_cats, ha = 'center')
+    axB.set_xticklabels([' 2020 \n dry','  2021 \n reference'] * N_cats, ha = 'center')
     [t.set_color(i) for (i,t) in zip(['brown','midnightblue'] * N_cats, axB.xaxis.get_ticklabels())]
     axB.spines['bottom'].set_alpha(0)
     
@@ -372,11 +394,11 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
                             label_order: list,
                             model: str,plot_type:str,
                             PATH_OUT: str,
-                            xlab: str,xvar: str,
+                            ylab: str,yvar: str,
                             saveFig: bool):
     
     sns.set_theme(style="ticks", 
-                  rc={"figure.figsize":(15, 10)},
+                  rc={"figure.figsize":(10, 15)},
                   font_scale = 3)
     
     # classdict = {0:'dry', 1:'wet',2:'shrubs',4:'ledum_moss_cloudberry',7:'tussocksedge'}
@@ -409,6 +431,7 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
            'HP1': 'HP1',
            'TS': 'TS'}
     
+    # Degree of the polynomial
     if model == 'linear':
         poly_order = 1
         lowess = False
@@ -424,9 +447,10 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
         
     
     if plot_type == 'regplot':
+        
         ax = sns.scatterplot(
             data = df_p, 
-            x=xvar, y='fcover', 
+            x = 'fcover', y = yvar, 
             hue="classes",
             hue_order = label_order,
             palette = colors,
@@ -434,16 +458,60 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
         )
         
         for cl in df_p['classes'].unique():
+            df_p_cl = df_p.loc[df_p['classes'] == cl,:].dropna()
+            x = df_p_cl['fcover'].values
+            y = df_p_cl[yvar].values
             
-            sns.regplot(
-                data=df_p.loc[df_p['classes'] == cl,:].dropna(),
-                x=xvar, y='fcover',
-                scatter=False,
-                truncate=True, 
-                order=poly_order, 
-                lowess = lowess,
-                color=colors[cl],ax = ax
-            )
+            # Fit the polynomial
+            poly_coefficients = np.polyfit(y, x, poly_order)
+            poly_fit = np.polyval(poly_coefficients, y)
+            
+            sns.lineplot(x=poly_fit, y = y,
+                         color=colors[cl],
+                         sort = False,
+                         ax = ax)
+            
+            # Calculate the confidence interval using bootstrapping
+            # Number of bootstrap samples
+            num_samples = 100
+            
+            # Perform bootstrapping
+            bootstrapped_fits = []
+            for _ in range(num_samples):
+                # Resample with replacement
+                indices = np.random.choice(range(len(x)), size=len(x), replace=True)
+                x_sampled = x[indices]
+                y_sampled = y[indices]
+                
+                # Fit the polynomial
+                poly_coefficients = np.polyfit(y_sampled, x_sampled, poly_order)
+                poly_fit = np.polyval(poly_coefficients, y)
+                bootstrapped_fits.append(poly_fit)
+            
+            # Calculate the mean and standard deviation of bootstrapped fits
+            bootstrapped_fits = np.array(bootstrapped_fits)
+            mean_fit = np.mean(bootstrapped_fits, axis=0)
+            std_fit = np.std(bootstrapped_fits, axis=0)
+            
+            # Calculate the confidence interval (95% by default)
+            confidence_interval = np.percentile(bootstrapped_fits, [2.5, 97.5], axis=0)
+            lower_bound = confidence_interval[0]
+            upper_bound = confidence_interval[1]
+            
+            
+            # Plot the confidence interval
+            ax.fill_betweenx(y, lower_bound, upper_bound, color=colors[cl], alpha=0.2)
+            
+            # sns.regplot(
+            #     data = df_p_cl,
+            #     y ='fcover', x=yvar, 
+            #     scatter=False,
+            #     truncate=True, 
+            #     order=poly_order, 
+            #     lowess = lowess,
+            #     color=colors[cl],
+            #     ax = ax
+            # )
         # ax.set_xlim(0,0.8)
            
         # Legend:
@@ -460,19 +528,21 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
         handles = []
         labels = []
         
-        g = sns.JointGrid(data=df_p.dropna(), x=xvar, y='fcover',
+        g = sns.JointGrid(data=df_p.dropna(),
+                          x='fcover',y=yvar, 
                           hue = hue_col,
                           hue_order = label_order,
-                          ylim = (0, 100),
-                          xlim = (0,0.8),
+                          xlim = (0, 100),
+                          ylim = (0,0.8),
                           # xlim = (df_p[df_p.fcover.notna()].meanT.min(),df_p[df_p.fcover.notna()].meanT.max()),
                           marginal_ticks=False,
                           )
         
         for i,gr in df_p.groupby(hue_col):
-            sns.regplot(x=xvar, y='fcover', data=gr,
+            sns.regplot(data=gr,
+                        x='fcover', y=yvar,  
                         scatter =True, ax=g.ax_joint,
-                        order = order,
+                        order = poly_order,
                         truncate  = True,
                         lowess = lowess,
                         color = colors[i])
@@ -494,9 +564,10 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
         g.ax_joint.legend_.set_title('$\\bf{Plant \; community}$')
         g.ax_joint.legend_._legend_box.align = "left"
     
-    ax.set(ylim = [0,100],
-           xlabel = xlab,
-           ylabel = 'Grid cell fCover (%)')
+    ax.set(xlim = [0,100],
+           ylim = [0,.5],
+           ylabel = ylab,
+           xlabel = 'Grid cell fCover (%)')
     
     sns.despine()
     ax.grid(False)
@@ -521,6 +592,7 @@ def PolyFitSensorT(df: pd.DataFrame, xvar:str, yvar:str, degree: int):
     
     return np.poly1d(np.polyfit(x,y,degree))
 
+# --------------------------------------
 def GatherData(fname,unc_instr, FitOnUnstable = True):
     df = pd.read_csv(fname,sep = ';', parse_dates = [1], index_col = 0)
     df['site'] = df.filename.apply(lambda s: s.replace('\\','/').split('/')[4].split('_')[0])
@@ -596,6 +668,7 @@ def read_fluxtower(fname):
     
     return df
 
+# --------------------------------------
 def GetMeanTair(df_flighttimes, df_fluxtower, site, year,
                 returnTemp=True,returnSW = False,returnWS = False):
     """
@@ -634,10 +707,12 @@ def GetMeanTair(df_flighttimes, df_fluxtower, site, year,
     if returnWS:
         return df_sliced.Cup_2M_Avg.mean()
 
+# --------------------------------------
 def ndvi(NIR, RED):
     return ((NIR - RED) / (NIR + RED))
 
 
+# --------------------------------------
 from skimage.io import imread
 
 def PrepRasters(PATH_CL,PATH_WATERMASK,
@@ -649,30 +724,53 @@ def PrepRasters(PATH_CL,PATH_WATERMASK,
     I_cl = imread(PATH_CL)
     I_wm = imread(PATH_WATERMASK)
     
-    I_cl = np.where(np.logical_and(I_cl == 3, I_wm != 3),255,I_cl)
+    # Mask out areas , where we have no water in 2020 but in 2021
+    mask1 = (I_wm != 3) & (I_cl == 3)
     
-    I_tir_20 = imread(PATH_20_TIR) -  T_air_20
-    I_tir_21 = imread(PATH_21_TIR) - T_air_21 
+    # Mask out areas , where we have no water in 2021 but have in 2020
+    mask2 = (I_wm == 3) & (I_cl != 3)
     
-    I_tir_20 = np.where(I_tir_20 < -100 ,np.nan, I_tir_20)
-    I_tir_21 = np.where(I_tir_21 < -100 ,np.nan, I_tir_21)
+    # Combine the masks to create the final mask
+    final_mask = (mask1 | mask2)
+    
+    # Apply the mask to exclude values in the class map
+    I_cl = np.where(final_mask,255,I_cl)
+    
+    I_tir_20 = np.ma.masked_less_equal(imread(PATH_20_TIR),0.1) 
+    I_tir_21 = np.ma.masked_less_equal(imread(PATH_21_TIR),0.1) 
     
     I_cl_s = I_cl[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
     I_wm_s = I_wm[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
+    
     I_tir_20_s = I_tir_20[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
     I_tir_21_s = I_tir_21[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
     
+    # get minimum temperature above water
+    if any(I_cl.ravel() == 3):
+        Tmin_20 = np.nanmin(I_tir_20_s[I_cl_s == 3] - T_air_20 ) 
+        Tmin_21 = np.nanmin(I_tir_21_s[I_cl_s == 3] - T_air_21 ) 
+    else:
+        Tmin_20 = np.nanmin(I_tir_20_s - T_air_20) 
+        Tmin_21 = np.nanmin(I_tir_21_s - T_air_21 ) 
+
+    I_wdi_20_s = ScaleMinMax(I_tir_20_s - T_air_20,Tmin_20)
+    I_wdi_21_s = ScaleMinMax(I_tir_21_s - T_air_21 ,Tmin_21)
+    
+    # I_wdi_20_s = I_wdi_20[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
+    # I_wdi_21_s = I_wdi_21[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
+    
     I_msp_20 = imread(PATH_MSP_20)
     I_msp_21 = imread(PATH_MSP_21)
+    
     I_ndvi_20 = ndvi(I_msp_20[:,:,4],I_msp_20[:,:,2])
     I_ndvi_21 = ndvi(I_msp_21[:,:,4],I_msp_21[:,:,2])
+    
     I_ndvi_20_s = I_ndvi_20[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
     I_ndvi_21_s = I_ndvi_21[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
-
-    return I_cl_s,I_wm_s, I_tir_20_s, I_tir_21_s, I_ndvi_20_s, I_ndvi_21_s
     
-
-
+    return I_cl_s,I_wm_s, I_tir_20_s, I_tir_21_s, I_wdi_20_s, I_wdi_21_s,I_ndvi_20_s, I_ndvi_21_s
+    
+# --------------------------------------
 def MeltArrays(arr, arr_cl,names, year, val_name):
     """
     Locates the temperature readings per land cover class and melts the results to a pd.DataFrame with:
@@ -712,14 +810,21 @@ def MeltArrays(arr, arr_cl,names, year, val_name):
     return df_m
 
 
-def ScaleMinMax(x):
+# --------------------------------------
+def ScaleMinMax(x, Tmin):
     """
     Normalizes an array by its range (min & max). 
     """
     # return (x - np.nanquantile(x,.0001)) / (np.nanquantile(x,.9999) - np.nanquantile(x,.0001))
-    return (x - np.nanmin(x)) / (np.nanmax(x) - np.nanmin(x))
+    # return (x - np.nanmin(x)) / (np.nanmax(x) - np.nanmin(x))
+    
+    # get maximum temperature in scene
+    Tmax = np.nanmax(x)
+    
+    return (x - Tmin) / (Tmax - Tmin)
 
 
+# --------------------------------------
 from scipy.stats import ttest_ind
 
 def DifferenceTest(df: pd.DataFrame, 
@@ -746,7 +851,8 @@ def DifferenceTest(df: pd.DataFrame,
             print(t)
             
     return ttests
-    
+
+# --------------------------------------
 from tqdm.auto import tqdm
 from joblib import Parallel, delayed
 
@@ -766,6 +872,7 @@ class ProgressParallel(Parallel):
         self._pbar.n = self.n_completed_tasks
         self._pbar.refresh()
 
+# --------------------------------------
 def pretty_table(rows, column_count, column_spacing=4):
     aligned_columns = []
     for column in range(column_count):
@@ -776,269 +883,148 @@ def pretty_table(rows, column_count, column_spacing=4):
         aligned_row = map(lambda x: (x[0], x[1][row]), aligned_columns)
         yield ''.join(map(lambda x: x[1] + ' ' * (x[0] - len(x[1])), aligned_row))
 
-# %% Statsmodels diagnostic plots for OLS
-# base code
-import statsmodels
-from statsmodels.tools.tools import maybe_unwrap_results
-from statsmodels.graphics.gofplots import ProbPlot
-from statsmodels.stats.outliers_influence import variance_inflation_factor
-from typing import Type
 
-style_talk = 'seaborn-talk'    #refer to plt.style.available
+# --------------------------------------
+# from osgeo import gdal
+# import xarray as xr
 
-class Linear_Reg_Diagnostic():
-    """
-    Diagnostic plots to identify potential problems in a linear regression fit.
-    Mainly,
-        a. non-linearity of data
-        b. Correlation of error terms
-        c. non-constant variance
-        d. outliers
-        e. high-leverage points
-        f. collinearity
+def GetFcover(dA_cl, dA_tir):
+    df = pd.DataFrame(columns = ['classes','count','fcover','meanT','sigmaT'])
+    df['classes'], df['count'] = np.unique(dA_cl,return_counts = True)
+    
+    df['fcover'] = df['count'] / df['count'].sum() *100
+    
+    for i,cl in enumerate(df['classes']):
+        df.loc[i,'meanT'] = np.nanmean(np.where(dA_cl == cl, dA_tir,np.nan))
+        df.loc[i,'sigmaT'] = np.nanstd(np.where(dA_cl == cl, dA_tir,np.nan))
+    
+    return df
 
-    Author:
-        Prajwal Kafle (p33ajkafle@gmail.com, where 3 = r)
-        Does not come with any sort of warranty.
-        Please test the code one your end before using.
-    """
+# --------------------------------------
+import time
 
-    def __init__(self,
-                 results: Type[statsmodels.regression.linear_model.RegressionResultsWrapper]) -> None:
-        """
-        For a linear regression model, generates following diagnostic plots:
+def MapFcover_np(windowsize, arr_classes, arr_thermal):
+    df_out = pd.DataFrame(columns = ['classes','count','fcover','meanT','sigmaT'])
+    window_radius = int(windowsize/2)
+    
+    centers = np.arange(window_radius,arr_classes.shape[1] - window_radius, window_radius)
+    
+    ycoords,xcoords = np.meshgrid(centers,centers) # build grid with window centers
+    
+    start = time.time()
+    
+    # Using numpy reshape & parallel:
+    # ====
+    a = arr_classes # get numpy array from xarray
+    c = a[a.shape[0] % windowsize:, a.shape[0] % windowsize:]
+    
+    nchunkrows = int(c.shape[0] / windowsize) # get n (nr. of chunkrows/columns), i.e. 8 x 8 = 64 chunks
+    L = np.array_split(c,nchunkrows) # select nxn subarrays
+    c = np.vstack([np.array_split(ai,nchunkrows,axis=1) for ai in L])
+    
+    b = arr_thermal # get numpy array from xarray
+    t = b[b.shape[0] % windowsize:, b.shape[0] % windowsize:]
+    
+    L = np.array_split(t,nchunkrows) # select nxn subarrays
+    t = np.vstack([np.array_split(ai,nchunkrows,axis=1) for ai in L]) # select nxn sub-array that fits to window operation
+    
+    # df_out = pd.concat([GetFcover(cl,tir,0) for cl,tir in tqdm(zip(c,t), total = c.shape[0] ) ], axis=0)
+    
+    ncores = 3
+    df_out = pd.concat( ProgressParallel(n_jobs = ncores)(delayed(GetFcover)(cl,tir) for cl,tir in zip(c,t)),
+                       axis = 0)
+    
+    # ii = 0
+    # for yv,xv in tqdm(zip(ycoords.flatten(),xcoords.flatten()),total = len(centers)**2):
+    #     df_out = pd.concat([df_out,
+    #                         GetFcover(dA_classes.isel(
+    #                             x = slice(xv-window_radius, xv+window_radius),
+    #                             y = slice(yv-window_radius, yv+window_radius)),
+    #                                   dA_thermal.isel(
+    #                                       x = slice(xv-window_radius, xv+window_radius),
+    #                                       y = slice(yv-window_radius, yv+window_radius)
+    #                                       ),ii)],
+    #                         axis = 0
+    #                         )
+    #     ii += 1
+    print(time.time() - start, 's')    
+    
+    classdict = {0:'HP1',
+                 1:'LW1',
+                 2:'HP2',
+                 3:'water',
+                 4:'LW2',
+                 5:'mud',
+                 7:'TS',
+                 np.nan: 'nodata'}
+    df_out['classes'] = df_out['classes'].map(classdict)
+    df_out['meanT'] = df_out.meanT.astype(float)
+    
+    return df_out
 
-        a. residual
-        b. qq
-        c. scale location and
-        d. leverage
+# --------------------------------------
+import time
+from osgeo import gdal
+import xarray as xr
 
-        and a table
-
-        e. vif
-
-        Args:
-            results (Type[statsmodels.regression.linear_model.RegressionResultsWrapper]):
-                must be instance of statsmodels.regression.linear_model object
-
-        Raises:
-            TypeError: if instance does not belong to above object
-
-        Example:
-        >>> import numpy as np
-        >>> import pandas as pd
-        >>> import statsmodels.formula.api as smf
-        >>> x = np.linspace(-np.pi, np.pi, 100)
-        >>> y = 3*x + 8 + np.random.normal(0,1, 100)
-        >>> df = pd.DataFrame({'x':x, 'y':y})
-        >>> res = smf.ols(formula= "y ~ x", data=df).fit()
-        >>> cls = Linear_Reg_Diagnostic(res)
-        >>> cls(plot_context="seaborn-paper")
-
-        In case you do not need all plots you can also independently make an individual plot/table
-        in following ways
-
-        >>> cls = Linear_Reg_Diagnostic(res)
-        >>> cls.residual_plot()
-        >>> cls.qq_plot()
-        >>> cls.scale_location_plot()
-        >>> cls.leverage_plot()
-        >>> cls.vif_table()
-        """
-
-        if isinstance(results, statsmodels.regression.linear_model.RegressionResultsWrapper) is False:
-            raise TypeError("result must be instance of statsmodels.regression.linear_model.RegressionResultsWrapper object")
-
-        self.results = maybe_unwrap_results(results)
-
-        self.y_true = self.results.model.endog
-        self.y_predict = self.results.fittedvalues
-        self.xvar = self.results.model.exog
-        self.xvar_names = self.results.model.exog_names
-
-        self.residual = np.array(self.results.resid)
-        influence = self.results.get_influence()
-        self.residual_norm = influence.resid_studentized_internal
-        self.leverage = influence.hat_matrix_diag
-        self.cooks_distance = influence.cooks_distance[0]
-        self.nparams = len(self.results.params)
-
-    def __call__(self, plot_context='seaborn-paper'):
-        # print(plt.style.available)
-        with plt.style.context(plot_context):
-            fig, ax = plt.subplots(nrows=2, ncols=2, figsize=(10,10))
-            self.residual_plot(ax=ax[0,0])
-            self.qq_plot(ax=ax[0,1])
-            self.scale_location_plot(ax=ax[1,0])
-            self.leverage_plot(ax=ax[1,1])
-            plt.show()
-
-        self.vif_table()
-        return fig, ax
-
-
-    def residual_plot(self, ax=None):
-        """
-        Residual vs Fitted Plot
-
-        Graphical tool to identify non-linearity.
-        (Roughly) Horizontal red line is an indicator that the residual has a linear pattern
-        """
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        sns.residplot(
-            x=self.y_predict,
-            y=self.residual,
-            lowess=True,
-            scatter_kws={'alpha': 0.5},
-            line_kws={'color': 'red', 'lw': 1, 'alpha': 0.8},
-            ax=ax)
-
-        # annotations
-        residual_abs = np.abs(self.residual)
-        abs_resid = np.flip(np.sort(residual_abs))
-        abs_resid_top_3 = abs_resid[:3]
-        for i, _ in enumerate(abs_resid_top_3):
-            ax.annotate(
-                i,
-                xy=(self.y_predict[i], self.residual[i]),
-                color='C3')
-
-        ax.set_title('Residuals vs Fitted', fontweight="bold")
-        ax.set_xlabel('Fitted values')
-        ax.set_ylabel('Residuals')
-        return ax
-
-    def qq_plot(self, ax=None):
-        """
-        Standarized Residual vs Theoretical Quantile plot
-
-        Used to visually check if residuals are normally distributed.
-        Points spread along the diagonal line will suggest so.
-        """
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        QQ = ProbPlot(self.residual_norm)
-        QQ.qqplot(line='45', alpha=0.5, lw=1, ax=ax)
-
-        # annotations
-        abs_norm_resid = np.flip(np.argsort(np.abs(self.residual_norm)), 0)
-        abs_norm_resid_top_3 = abs_norm_resid[:3]
-        for r, i in enumerate(abs_norm_resid_top_3):
-            ax.annotate(
-                i,
-                xy=(np.flip(QQ.theoretical_quantiles, 0)[r], self.residual_norm[i]),
-                ha='right', color='C3')
-
-        ax.set_title('Normal Q-Q', fontweight="bold")
-        ax.set_xlabel('Theoretical Quantiles')
-        ax.set_ylabel('Standardized Residuals')
-        return ax
-
-    def scale_location_plot(self, ax=None):
-        """
-        Sqrt(Standarized Residual) vs Fitted values plot
-
-        Used to check homoscedasticity of the residuals.
-        Horizontal line will suggest so.
-        """
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        residual_norm_abs_sqrt = np.sqrt(np.abs(self.residual_norm))
-
-        ax.scatter(self.y_predict, residual_norm_abs_sqrt, alpha=0.5);
-        sns.regplot(
-            x=self.y_predict,
-            y=residual_norm_abs_sqrt,
-            scatter=False, ci=False,
-            lowess=True,
-            line_kws={'color': 'red', 'lw': 1, 'alpha': 0.8},
-            ax=ax)
-
-        # annotations
-        abs_sq_norm_resid = np.flip(np.argsort(residual_norm_abs_sqrt), 0)
-        abs_sq_norm_resid_top_3 = abs_sq_norm_resid[:3]
-        for i in abs_sq_norm_resid_top_3:
-            ax.annotate(
-                i,
-                xy=(self.y_predict[i], residual_norm_abs_sqrt[i]),
-                color='C3')
-        ax.set_title('Scale-Location', fontweight="bold")
-        ax.set_xlabel('Fitted values')
-        ax.set_ylabel(r'$\sqrt{|\mathrm{Standardized\ Residuals}|}$');
-        return ax
-
-    def leverage_plot(self, ax=None):
-        """
-        Residual vs Leverage plot
-
-        Points falling outside Cook's distance curves are considered observation that can sway the fit
-        aka are influential.
-        Good to have none outside the curves.
-        """
-        if ax is None:
-            fig, ax = plt.subplots()
-
-        ax.scatter(
-            self.leverage,
-            self.residual_norm,
-            alpha=0.5);
-
-        sns.regplot(
-            x=self.leverage,
-            y=self.residual_norm,
-            scatter=False,
-            ci=False,
-            lowess=True,
-            line_kws={'color': 'red', 'lw': 1, 'alpha': 0.8},
-            ax=ax)
-
-        # annotations
-        leverage_top_3 = np.flip(np.argsort(self.cooks_distance), 0)[:3]
-        for i in leverage_top_3:
-            ax.annotate(
-                i,
-                xy=(self.leverage[i], self.residual_norm[i]),
-                color = 'C3')
-
-        xtemp, ytemp = self.__cooks_dist_line(0.5) # 0.5 line
-        ax.plot(xtemp, ytemp, label="Cook's distance", lw=1, ls='--', color='red')
-        xtemp, ytemp = self.__cooks_dist_line(1) # 1 line
-        ax.plot(xtemp, ytemp, lw=1, ls='--', color='red')
-
-        ax.set_xlim(0, max(self.leverage)+0.01)
-        ax.set_title('Residuals vs Leverage', fontweight="bold")
-        ax.set_xlabel('Leverage')
-        ax.set_ylabel('Standardized Residuals')
-        ax.legend(loc='upper right')
-        return ax
-
-    def vif_table(self):
-        """
-        VIF table
-
-        VIF, the variance inflation factor, is a measure of multicollinearity.
-        VIF > 5 for a variable indicates that it is highly collinear with the
-        other input variables.
-        """
-        vif_df = pd.DataFrame()
-        vif_df["Features"] = self.xvar_names
-        vif_df["VIF Factor"] = [variance_inflation_factor(self.xvar, i) for i in range(self.xvar.shape[1])]
-
-        print(vif_df
-                .sort_values("VIF Factor")
-                .round(2))
-
-
-    def __cooks_dist_line(self, factor):
-        """
-        Helper function for plotting Cook's distance curves
-        """
-        p = self.nparams
-        formula = lambda x: np.sqrt((factor * p * (1 - x)) / x)
-        x = np.linspace(0.001, max(self.leverage), 50)
-        y = formula(x)
-        return x, y
+def MapFcover_xr(windowsize, dA_classes, dA_thermal):
+    df_out = pd.DataFrame(columns = ['classes','count','fcover','meanT','sigmaT'])
+    window_radius = int(windowsize/2)
+    
+    centers = np.arange(window_radius,dA_classes.shape[1] - window_radius, window_radius)
+    
+    ycoords,xcoords = np.meshgrid(centers,centers) # build grid with window centers
+    
+    # plt.imshow(dA_classes[0],vmax = 8,cmap = cm.bamako);
+    # dxy = window_radius/2
+    # plt.imshow(I_cl_s,vmax = 8,cmap = cm.bamako);
+    # plt.plot(ycoords,xcoords,'.',c = 'w');
+    # plt.plot(xcoords-dxy,ycoords-dxy,'-',c = 'w');
+    # plt.plot(ycoords -dxy ,xcoords-dxy,'-',c = 'w');
+    # plt.plot(ycoords +dxy ,xcoords+dxy,'-',c = 'w');
+    # plt.plot(xcoords + dxy,ycoords+dxy,'-',c = 'w');
+    # plt.savefig(r'C:/Users/nils/Documents/1_PhD/5_CHAPTER1/figures_and_maps/thermal_mosaics/FcoverGridExample.png',bbox_inches='tight')
+    
+    start = time.time()
+    
+    # Using numpy reshape & parallel:
+    # ====
+    a = dA_classes.values # get numpy array from xarray
+    c = a[a.shape[0] % windowsize:, a.shape[0] % windowsize:]
+    
+    nchunkrows = int(c.shape[0] / windowsize) # get n (nr. of chunkrows/columns), i.e. 8 x 8 = 64 chunks
+    L = np.array_split(c,nchunkrows) # select nxn subarrays
+    c = np.vstack([np.array_split(ai,nchunkrows,axis=1) for ai in L])
+    
+    b = dA_thermal.values # get numpy array from xarray
+    t = b[b.shape[0] % windowsize:, b.shape[0] % windowsize:]
+    
+    L = np.array_split(t,nchunkrows) # select nxn subarrays
+    t = np.vstack([np.array_split(ai,nchunkrows,axis=1) for ai in L]) # select nxn sub-array that fits to window operation
+    
+    # df_out = pd.concat([GetFcover(cl,tir,0) for cl,tir in tqdm(zip(c,t), total = c.shape[0] ) ], axis=0)
+    
+    ncores = 3
+    df_out = pd.concat( ProgressParallel(n_jobs = ncores)(delayed(GetFcover)(cl,tir) for cl,tir in zip(c,t)),
+                       axis = 0)
+    
+    # ii = 0
+    # for yv,xv in tqdm(zip(ycoords.flatten(),xcoords.flatten()),total = len(centers)**2):
+    #     df_out = pd.concat([df_out,
+    #                         GetFcover(dA_classes.isel(
+    #                             x = slice(xv-window_radius, xv+window_radius),
+    #                             y = slice(yv-window_radius, yv+window_radius)),
+    #                                   dA_thermal.isel(
+    #                                       x = slice(xv-window_radius, xv+window_radius),
+    #                                       y = slice(yv-window_radius, yv+window_radius)
+    #                                       ),ii)],
+    #                         axis = 0
+    #                         )
+    #     ii += 1
+    print(time.time() - start, 's')    
+    
+    classdict = {0:'HP1', 1:'LW1',2:'HP2',3:'water',4:'LW2',5:'mud',7:'TS'}
+    df_out['classes'] = df_out['classes'].map(classdict)
+    df_out['meanT'] = df_out.meanT.astype(float)
+    
+    return df_out
