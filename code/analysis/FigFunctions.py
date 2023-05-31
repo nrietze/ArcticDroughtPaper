@@ -17,6 +17,7 @@ MAIN_PATH = r'C:/Users/nils/OneDrive - Universität Zürich UZH/Dokumente 1/1_Ph
 # %% DENSITY PLOT FUNCTION
 # ========================
 from itertools import combinations
+import matplotlib.ticker as ticker
 
 def PlotDensities(data: pd.DataFrame, xvar: str,
                   PATH_OUT: str,
@@ -31,8 +32,11 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
                   showBothYears = False ):
     
     # Set seaborn theme:
+    custom_params = {"axes.spines.right": False, "axes.spines.top": False,
+                     "figure.figsize":(20, 10)}
+    
     sns.set_theme(style="ticks",
-                  rc={"figure.figsize":(20, 10)},
+                  rc=custom_params,
                   font_scale = 5)
     
     # Mask out Mud & water if not wanted
@@ -209,12 +213,38 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
     else:
         ax.set(xlim = xlim)
     
-    ax.set(xlabel = xlab)
+    n_decimals = 2
+    ymax = np.ceil(ax.get_ylim()[1] * 10**n_decimals) / 10**n_decimals 
+    
+    if xvar == 'wdi':
+        ymax = np.ceil(ymax) + 1
+        dty = int
+    else:
+        dty = float
+        
+    ax.set(xlabel = xlab,
+           ylim = [0,ymax],
+           yticks = np.linspace(0, ymax, 3,dtype = dty))
+    
+    # Create a custom formatting function
+    def custom_format(value, pos):
+        if value == 0:
+            return 0
+        elif abs(value) % round(abs(value),1) == 0:
+            return '{:0.1f}'.format(value)
+        elif abs(value) % round(abs(value),2) == 0 and abs(value) % round(abs(value),1) != 0:
+            return '{:0.2f}'.format(value)
+        else:
+            return '{:0.3f}'.format(value)
+    
+    # Set the y-axis tick formatter
+    ax.yaxis.set_major_formatter(ticker.FuncFormatter(custom_format))
     
     # Adjust the position of the x-axis tick labels by moving them down
     ax.tick_params(axis='x', pad=20) 
     
     sns.despine()
+    
     ax.grid(False)
     
     # Change witdth of legend lines
@@ -263,16 +293,16 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
                    data_ttest = None):
     
     sns.set_theme(style="ticks", 
-                   rc={"figure.figsize":(20, 10)},
+                   rc={"figure.figsize":(30, 10)},
                   font_scale = 3)
     
     lbl = {'water':'Open water',
            'mud': 'Mud',
-           'LW1': 'LW1',
-           'LW2': 'LW2', 
-           'HP2': 'HP2', 
-           'HP1': 'HP1',
-           'TS': 'TS'}
+           'LW1': '$\\bf{LW1}$:\n Low-centered \nwetland complex \n(bottom)',
+           'LW2': '$\\bf{LW2}$:\n Low-centered \nwetland complex \n(top)', 
+           'HP2': '$\\bf{HP2}$:\n High-centered \npolygons \n(dwarf birch)', 
+           'HP1': '$\\bf{HP1}$:\n High-centered \npolygons \n(dry sedges and lichen)',
+           'TS': '$\\bf{TS}$:\n Tussock – sedge'}
     
     xticklabs = [lbl[t] for t in label_order]
     
@@ -304,19 +334,28 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
         ax = sns.boxplot(data = data, 
                          x = 'variable', y = yvar,
                          hue = 'year', order = label_order,
+                         whis=[1, 99],
                          # dodge = True,
                          fliersize=0.1)
     else: 
         sns.boxplot(data = data, 
                     x = 'variable', y = yvar,
                     hue = 'year', order = label_order,
+                    whis=[1, 99],
                     ax = ax,
                     fliersize=0.1)
     ylab = 'Water deficit index (-)' if yvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)' # 'Standardized $T_{surf}$ - $T_{air}$ (-)'
     
     ax.set(ylabel = ylab,
-           xlabel = '',
-           xticklabels = xticklabs)
+           xlabel = '')
+    
+    # Set the x tick labels on top to the plant communities and align them
+    ax.set_xticklabels(xticklabs,
+                       horizontalalignment='center', 
+                       verticalalignment='top', 
+                       fontsize=30)
+    # set the x tick label positioning
+    ax.xaxis.set_tick_params(pad=150)
     
     if yvar == 'wdi':
         ax.set_ylim([0,1]) 
@@ -351,6 +390,8 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
     sns.despine(trim = True)
     ax.grid(False)
     ax.spines['bottom'].set_alpha(0)
+    ax.spines['top'].set_alpha(0)
+    ax.spines['right'].set_alpha(0)
     
     [ax.axvline(x+.5, color='lightgray') for x in ax.get_xticks()]
     
@@ -372,7 +413,7 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
                     length = 0)
     
     axB.set_xticks([-.25 + .5 * i for i in range(N_cats*2)])
-    axB.set_xticklabels([' 2020 \n dry','  2021 \n reference'] * N_cats, ha = 'center')
+    axB.set_xticklabels([' 2020','  2021'] * N_cats, ha = 'center')
     [t.set_color(i) for (i,t) in zip(['brown','midnightblue'] * N_cats, axB.xaxis.get_ticklabels())]
     axB.spines['bottom'].set_alpha(0)
     
@@ -391,15 +432,17 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
                             bin_interval: float,
                             value_variable: str,
                             colors: dict,
+                            
                             label_order: list,
                             model: str,plot_type:str,
                             PATH_OUT: str,
                             ylab: str,yvar: str,
-                            saveFig: bool):
+                            saveFig: bool,
+                            ax = None):
     
-    sns.set_theme(style="ticks", 
-                  rc={"figure.figsize":(10, 15)},
-                  font_scale = 3)
+    sns.set_theme(style="ticks",
+                  font_scale = 3,
+                  rc = {"axes.spines.right": False, "axes.spines.top": False})
     
     # classdict = {0:'dry', 1:'wet',2:'shrubs',4:'ledum_moss_cloudberry',7:'tussocksedge'}
 
@@ -425,11 +468,11 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
     
     lbl = {'water':'Open water',
            'mud': 'Mud',
-           'LW1': 'LW1',
-           'LW2': 'LW2', 
-           'HP2': 'HP2', 
-           'HP1': 'HP1',
-           'TS': 'TS'}
+           'LW1': '$\\bf{LW1}$: Low-centered \nwetland complex (bottom)',
+           'LW2': '$\\bf{LW2}$: Low-centered \nwetland complex (top)', 
+           'HP2': '$\\bf{HP2}$: High-centered \npolygons (dwarf birch)', 
+           'HP1': '$\\bf{HP1}$: High-centered \npolygons (dry sedges and lichen)',
+           'TS': '$\\bf{TS}$: Tussock – sedge'}
     
     # Degree of the polynomial
     if model == 'linear':
@@ -448,14 +491,27 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
     
     if plot_type == 'regplot':
         
-        ax = sns.scatterplot(
-            data = df_p, 
-            x = 'fcover', y = yvar, 
-            hue="classes",
-            hue_order = label_order,
-            palette = colors,
-            s = 15
-        )
+        if ax == None:
+        
+            ax = sns.scatterplot(
+                data = df_p, 
+                x = 'fcover', y = yvar, 
+                hue="classes",
+                hue_order = label_order,
+                palette = colors,
+                s = 15
+            )
+            
+        else: 
+            sns.scatterplot(
+                data = df_p, 
+                x = 'fcover', y = yvar, 
+                hue="classes",
+                hue_order = label_order,
+                palette = colors,
+                s = 15,
+                ax = ax
+            )
         
         for cl in df_p['classes'].unique():
             df_p_cl = df_p.loc[df_p['classes'] == cl,:].dropna()
@@ -466,7 +522,7 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
             poly_coefficients = np.polyfit(y, x, poly_order)
             poly_fit = np.polyval(poly_coefficients, y)
             
-            sns.lineplot(x=poly_fit, y = y,
+            sns.lineplot(x = poly_fit, y = y,
                          color=colors[cl],
                          sort = False,
                          ax = ax)
@@ -498,7 +554,6 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
             lower_bound = confidence_interval[0]
             upper_bound = confidence_interval[1]
             
-            
             # Plot the confidence interval
             ax.fill_betweenx(y, lower_bound, upper_bound, color=colors[cl], alpha=0.2)
             
@@ -517,11 +572,18 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
         # Legend:
         legend = ax.get_legend()
         handles = legend.legendHandles
-        labels_adj = [lbl[t.get_text()] for t in legend.texts]
         
-        ax.legend(handles,labels_adj,loc= 'best')
-        ax.legend_.set_title('$\\bf{Plant \; community}$')
-        ax.legend_._legend_box.align = "left"
+        line_handles = [plt.Line2D([], [], color=h.get_facecolor(), linestyle='-', linewidth=5) for h in handles]
+        
+        labels_adj = [lbl[t.get_text()] for t in legend.texts]
+        ax.legend(line_handles,labels_adj,
+                  loc='upper center', 
+                  title = '$\\bf{Plant \; community}$',
+                  frameon=False,
+                  bbox_to_anchor = (0.5, -0.1), 
+                  ncol=2)
+        # ax.legend_.set_title('$\\bf{Plant \; community}$')
+        # ax.legend_._legend_box.align = "left"
             
     elif plot_type == 'jointplot':  
         hue_col = 'classes'
@@ -575,7 +637,7 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
     if saveFig:
         plt.savefig(PATH_OUT, bbox_inches = 'tight')
     plt.show()
-    return ax, df_p
+    return ax, labels_adj, line_handles, df_p
         
 # %% SENSOR DRIFT FUNCTIONS
 
