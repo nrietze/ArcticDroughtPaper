@@ -55,17 +55,17 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         
         colors = {x: colors[x] for x in colors if x not in ['mud']}
         
-    lw = 5
+    lw = 8
     
     xlab = 'Water deficit index (-)' if xvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)'
     
     lbl = {'water':'Open water',
            'mud': 'Mud',
-           'LW1': '$\\bf{LW1}$: Low-centered \nwetland complex (bottom)',
-           'LW2': '$\\bf{LW2}$: Low-centered \nwetland complex (top)', 
-           'HP2': '$\\bf{HP2}$: High-centered \npolygons (dwarf birch)', 
-           'HP1': '$\\bf{HP1}$: High-centered \npolygons (dry sedges and lichen)',
-           'TS': '$\\bf{TS}$: Tussock – sedge'}
+           'LW1': 'LW1: Low-centered \nwetland complex (bottom)',
+           'LW2': 'LW2: Low-centered \nwetland complex (top)', 
+           'HP2': 'HP2: High-centered \npolygons (dwarf birch)', 
+           'HP1': 'HP1: High-centered \npolygons (dry sedges & lichen)',
+           'TS': 'TS: Tussock–sedge'}
     
     if showBothYears:
         if ax == None: # create new axis instance
@@ -139,6 +139,21 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
                         legend = True)
         ax.set(ylabel = 'Kernel density estimate')
     
+    # Set y-axis limits to nicely formatted decimals
+    n_decimals = 1
+    ymax = ax.get_ylim()[1]
+    
+    if xvar == 'wdi':
+        ymax = np.ceil(ymax) + 1
+        dty = int
+    else:
+        ymax = 0.22 if ymax <  0.22 else np.ceil(ymax * 10**n_decimals) / 10**n_decimals
+        dty = float
+        
+    ax.set(xlabel = xlab,
+           ylim = [0,ymax],
+           yticks = np.linspace(0, ymax, 3,dtype = dty))
+    
     if showSignif:
         # Add significance bars over the different vegetation classes where differences are significant (t-test)
         ylim = ax.get_ylim()
@@ -154,7 +169,7 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         
         # add vertical lines on centers:
         for cen in xs.iteritems():
-            ax.axvline(cen[1], c = colors[cen[0]], ls = '--', lw = lw, alpha = .5)
+            ax.axvline(cen[1],c = colors[cen[0]], ls = '--', lw = lw, alpha = .5)
         
         xpos = pd.DataFrame({
             'group1': [x1 for x1,x2 in combinations(xs.index,2)],
@@ -186,8 +201,8 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         i = 1
         
         for _,r in xpos_merged.iterrows():
-            ypos_top =  ylim[1] + ylim[1]/20 * i
-            ypos_bottom = ypos_top - yrange / 50
+            ypos_top =  ylim[1] * .9 + ylim[1]/10 * i
+            ypos_bottom = ypos_top - yrange / 30
             # ax.hlines(y = ypos, xmin = r.x1 / yrange, xmax = r.x2 / yrange,
             #           colors='gray', lw=10, alpha=0.5, transform=plt.gcf().transFigure)
             
@@ -213,19 +228,6 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
     else:
         ax.set(xlim = xlim)
     
-    n_decimals = 2
-    ymax = np.ceil(ax.get_ylim()[1] * 10**n_decimals) / 10**n_decimals 
-    
-    if xvar == 'wdi':
-        ymax = np.ceil(ymax) + 1
-        dty = int
-    else:
-        dty = float
-        
-    ax.set(xlabel = xlab,
-           ylim = [0,ymax],
-           yticks = np.linspace(0, ymax, 3,dtype = dty))
-    
     # Create a custom formatting function
     def custom_format(value, pos):
         if value == 0:
@@ -245,6 +247,17 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
     
     sns.despine()
     
+    tickwidth = 5
+    ticklength = 10
+    
+    # Thicken the axis spines
+    ax.spines['bottom'].set_linewidth(tickwidth)
+    ax.spines['left'].set_linewidth(tickwidth)
+    
+    # Thicken the axis ticks
+    ax.tick_params(axis='x', width=tickwidth, length=ticklength)
+    ax.tick_params(axis='y', width=tickwidth, length=ticklength)
+ 
     ax.grid(False)
     
     # Change witdth of legend lines
@@ -298,11 +311,11 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
     
     lbl = {'water':'Open water',
            'mud': 'Mud',
-           'LW1': '$\\bf{LW1}$:\n Low-centered \nwetland complex \n(bottom)',
-           'LW2': '$\\bf{LW2}$:\n Low-centered \nwetland complex \n(top)', 
-           'HP2': '$\\bf{HP2}$:\n High-centered \npolygons \n(dwarf birch)', 
-           'HP1': '$\\bf{HP1}$:\n High-centered \npolygons \n(dry sedges and lichen)',
-           'TS': '$\\bf{TS}$:\n Tussock – sedge'}
+           'LW1': '$\\bf{LW1}$\n Low-centered \nwetland complex \n(bottom)',
+           'LW2': '$\\bf{LW2}$\n Low-centered \nwetland complex \n(top)', 
+           'HP2': '$\\bf{HP2}$\n High-centered \npolygons \n(dwarf birch)', 
+           'HP1': '$\\bf{HP1}$\n High-centered \npolygons \n(dry sedges & lichen)',
+           'TS': '$\\bf{TS}$\n Tussock–sedge'}
     
     xticklabs = [lbl[t] for t in label_order]
     
@@ -344,7 +357,7 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
                     whis=[1, 99],
                     ax = ax,
                     fliersize=0.1)
-    ylab = 'Water deficit index (-)' if yvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)' # 'Standardized $T_{surf}$ - $T_{air}$ (-)'
+    ylab = 'Water deficit index' if yvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)' # 'Standardized $T_{surf}$ - $T_{air}$ (-)'
     
     ax.set(ylabel = ylab,
            xlabel = '')
@@ -354,6 +367,7 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
                        horizontalalignment='center', 
                        verticalalignment='top', 
                        fontsize=30)
+    
     # set the x tick label positioning
     ax.xaxis.set_tick_params(pad=150)
     
@@ -363,6 +377,13 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
     ax.tick_params(axis = 'both', top=True, labeltop=True,
                    bottom=False, labelbottom=False,
                    length = 4)
+    
+    tickwidth = 2
+    ticklength = 10
+
+    # Thicken the axis ticks
+    ax.tick_params(axis='y', width=tickwidth, length=ticklength)
+    
     ax.legend_.remove()
     
     N_cats = len(data.variable.unique())
@@ -392,6 +413,7 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
     ax.spines['bottom'].set_alpha(0)
     ax.spines['top'].set_alpha(0)
     ax.spines['right'].set_alpha(0)
+    ax.spines['left'].set_linewidth(tickwidth)  # Thicken the axis spines
     
     [ax.axvline(x+.5, color='lightgray') for x in ax.get_xticks()]
     
@@ -440,12 +462,12 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
                             saveFig: bool,
                             ax = None):
     
+    # classdict = {0:'dry', 1:'wet',2:'shrubs',4:'ledum_moss_cloudberry',7:'tussocksedge'}
+    
     sns.set_theme(style="ticks",
-                  font_scale = 3,
+                  font_scale = 5,
                   rc = {"axes.spines.right": False, "axes.spines.top": False})
     
-    # classdict = {0:'dry', 1:'wet',2:'shrubs',4:'ledum_moss_cloudberry',7:'tussocksedge'}
-
     mask = np.logical_and(data.classes != 'water',data.classes != 'mud')
     data_masked = data.loc[mask,:]
     label_order = [x for x in label_order if x not in ['water','mud']]
@@ -468,11 +490,11 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
     
     lbl = {'water':'Open water',
            'mud': 'Mud',
-           'LW1': '$\\bf{LW1}$: Low-centered \nwetland complex (bottom)',
-           'LW2': '$\\bf{LW2}$: Low-centered \nwetland complex (top)', 
-           'HP2': '$\\bf{HP2}$: High-centered \npolygons (dwarf birch)', 
-           'HP1': '$\\bf{HP1}$: High-centered \npolygons (dry sedges and lichen)',
-           'TS': '$\\bf{TS}$: Tussock – sedge'}
+           'LW1': 'LW1: Low-centered \nwetland complex (bottom)',
+           'LW2': 'LW2: Low-centered \nwetland complex (top)', 
+           'HP2': 'HP2: High-centered \npolygons (dwarf birch)', 
+           'HP1': 'HP1: High-centered \npolygons (dry sedges & lichen)',
+           'TS': 'TS: Tussock–sedge'}
     
     # Degree of the polynomial
     if model == 'linear':
@@ -492,14 +514,15 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
     if plot_type == 'regplot':
         
         if ax == None:
-        
+            sns.set_theme(font_scale = 2)
+            
             ax = sns.scatterplot(
                 data = df_p, 
                 x = 'fcover', y = yvar, 
                 hue="classes",
                 hue_order = label_order,
                 palette = colors,
-                s = 15
+                s = 55
             )
             
         else: 
@@ -509,7 +532,7 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
                 hue="classes",
                 hue_order = label_order,
                 palette = colors,
-                s = 15,
+                s = 55,
                 ax = ax
             )
         
@@ -525,6 +548,7 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
             sns.lineplot(x = poly_fit, y = y,
                          color=colors[cl],
                          sort = False,
+                         lw = 10,
                          ax = ax)
             
             # Calculate the confidence interval using bootstrapping
@@ -573,14 +597,14 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
         legend = ax.get_legend()
         handles = legend.legendHandles
         
-        line_handles = [plt.Line2D([], [], color=h.get_facecolor(), linestyle='-', linewidth=5) for h in handles]
+        line_handles = [plt.Line2D([], [], color=h.get_facecolor(), linestyle='-', linewidth=10) for h in handles]
         
         labels_adj = [lbl[t.get_text()] for t in legend.texts]
         ax.legend(line_handles,labels_adj,
                   loc='upper center', 
-                  title = '$\\bf{Plant \; community}$',
+                  title = 'Plant community',
                   frameon=False,
-                  bbox_to_anchor = (0.5, -0.1), 
+                  bbox_to_anchor = (0.5, -0.15), 
                   ncol=2)
         # ax.legend_.set_title('$\\bf{Plant \; community}$')
         # ax.legend_._legend_box.align = "left"
@@ -632,6 +656,18 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
            xlabel = 'Grid cell fCover (%)')
     
     sns.despine()
+    
+    tickwidth = 5
+    ticklength = 10
+    
+    # Thicken the axis spines
+    ax.spines['bottom'].set_linewidth(tickwidth)
+    ax.spines['left'].set_linewidth(tickwidth)
+    
+    # Thicken the axis ticks
+    ax.tick_params(axis='x', width=tickwidth, length=ticklength)
+    ax.tick_params(axis='y', width=tickwidth, length=ticklength)
+    
     ax.grid(False)
     
     if saveFig:

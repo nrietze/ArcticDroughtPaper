@@ -89,12 +89,12 @@ if not os.path.exists('./tables/intermediate/'):
 Plot_Mosaic_Panels = False   
  
 if Plot_Mosaic_Panels:
-    source = 'LC' 
-    # source = 'TIR' 
+    # source = 'LC' 
+    source = 'TIR' 
     
     # Figure instance for mosaic overviews
-    sns.set_theme(style="ticks",font_scale=2)
-    fig,axs = plt.subplots(2,3, sharex = True, sharey = True, figsize = (23,17))    
+    sns.set_theme(style="ticks",font_scale=3)
+    fig,axs = plt.subplots(2,3, sharex = False, sharey = False, figsize = (24,17))    
     
     if source == 'TIR':
         cmap = cm.lajolla_r
@@ -196,24 +196,29 @@ for i,site in enumerate(sites):
             cmap = ListedColormap(colors)
             vmin = 0
             vmax = max(unique_values) + 1 if site != 'Ridge' else 3
-            
+          
+        # Plot 2020 drone data
         p = axs[0][i].imshow(I_src_20,cmap = cmap, 
+                             aspect = 'equal',
                              interpolation = 'nearest',
                              vmin = vmin, vmax = vmax)
-        # axs[0][i].axis('off')
-        axs[0][i].spines['top'].set_visible(True)
-        axs[0][i].spines['bottom'].set_visible(True)
-        axs[0][i].spines['left'].set_visible(True)
-        axs[0][i].spines['right'].set_visible(True)
-        axs[0][i].tick_params(axis='both', which='both', 
-                              labelleft = False,length=0)
-        axs[0][i].set(title = site)
-    
+
+        axs[0][i].set_title( site, fontweight = 'bold')
+        
+        # Plot 2021 drone data
         axs[1][i].imshow(I_src_21,cmap = cmap, 
                          interpolation = 'nearest',
+                         aspect = 'equal',
                          vmin = vmin, vmax = vmax)
-        axs[1][i].axis('off')
-    
+
+        for ax in axs.flat:
+            for spine in ax.spines.values():
+                spine.set_edgecolor('black')
+            
+            ax.tick_params(axis='both', which='both', 
+                            labelleft = False,labelbottom = False,
+                            length=0)
+        
     # check if a csv of image data already exists:
     try:
         df_m_s = pd.read_csv(f'./tables/intermediate/{site}_data_thermal.csv',sep=';')
@@ -301,24 +306,26 @@ for i,site in enumerate(sites):
 if Plot_Mosaic_Panels:
 
     # Add year labels on y-axis
-    fig.text(0.01, 0.75, 2020, va='center', rotation='vertical')
-    fig.text(0.01, 0.25, 2021, va='center', rotation='vertical')
+    fig.text(0, 0.75, 2020, va='center', rotation='vertical', fontweight = 'bold')
+    fig.text(0, 0.25, 2021, va='center', rotation='vertical', fontweight = 'bold')
     
     # despine figure
     # sns.despine()
     
     # Add a scale bar below the bottom center subplot
-    bottom_center_ax = axs[1, 1]
-    bottom_center_ax.axhline(2800, color='gray', linestyle='-',lw = 20)
+    # bottom_center_ax = fig.add_subplot(3, 2, 5)  # 3 rows, 2 columns, position 5
+    bottom_center_ax = fig.add_axes([0.345, -0.01, 0.315, 0.05])
+    bottom_center_ax.axhline(3000, color='gray', linestyle='-',lw = 20)
+    bottom_center_ax.set_axis_off()
     
     # Add a text label below the line
-    bottom_center_ax.text(0.5, -0.05, '400 m',color='gray',
+    bottom_center_ax.text(0.5, -0.25, '400 m',color='gray',
                           ha='center', va='center', transform=bottom_center_ax.transAxes)
     
     # Add the colorbar for thermal data
     if source == 'TIR':
         # Create the colorbar axes below the subplots
-        cax = fig.add_axes([0.2, -0.07, 0.6, 0.05])
+        cax = fig.add_axes([0.2, -0.1, 0.6, 0.05])
         
         cbar = plt.colorbar(p, cax=cax, 
                             orientation='horizontal',
@@ -342,9 +349,9 @@ if Plot_Mosaic_Panels:
         fig.legend(handles=patches,
                    frameon=False, 
                    loc='lower center',
-                   ncol = 4,
+                   ncol = 3,
                    title = 'Land cover',
-                   bbox_to_anchor = (0.5, -0.15))
+                   bbox_to_anchor = (0.5, -0.3))
         
     # Adjust spacing between subplots and colorbar
     plt.subplots_adjust(top = 0.8,bottom=0.2,
@@ -398,7 +405,7 @@ for i,site in enumerate(sites):
     plt.show()
     
     # export results form differnce test in 2021 
-    thsd.to_csv(f'./tables/results/Table_S8_2021_{site}.csv', sep=';', index = False)
+    # thsd.to_csv(f'./tables/results/Table_S8_2021_{site}.csv', sep=';', index = False)
     
     # Plot Densities in 2020 and 2021
     thsd = pd.DataFrame(data = mc20.tukeyhsd()._results_table.data[1:], 
@@ -417,10 +424,17 @@ for i,site in enumerate(sites):
     plt.show()
     
     # export results form differnce test in 2020 
-    thsd.to_csv(f'./tables/results/Table_S8_2020_{site}.csv', sep=';', index = False)
+    # thsd.to_csv(f'./tables/results/Table_S8_2020_{site}.csv', sep=';', index = False)
     
     print('done.')
-    
+
+# %%
+for df_m_s in df_list:
+    df_m_s_stats = df_m_s.groupby(['year','variable']).describe()
+    cv = df_m_s_stats[('deltaT','std')] / df_m_s_stats[('deltaT','mean')] 
+    print(cv)
+
+
 # %% 1a. DENSITY PLOT IN ONE YEAR IN ALL SITES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 group_var = 'variable'
@@ -433,7 +447,7 @@ showSignif = True
 fig, axs = plt.subplots(nrows = 3, figsize=(30,30), dpi = 200,sharex = True) # create subplot instance
 
 # Create the subplots
-labs = ['a)','b)','c)']
+labs = ['(a)','(b)','(c)']
 
 for i,site in enumerate(sites):
     print(f'Generating subplot in {site} for Figure 1...')   
@@ -477,11 +491,11 @@ for i,site in enumerate(sites):
     
     ax.get_legend().remove()
     
-    axs[i].text(.75, .9, labs[i] + ' ' + site, transform=axs[i].transAxes, weight='bold')
+    axs[i].text(-.05, 1.15, labs[i] + ' ' + site, transform=axs[i].transAxes, weight='bold')
  
 # Set the y-label for the entire figure
 if showSignif:
-    fig.text(0.01, 0.5, 'Kernel density estimate', va='center', rotation='vertical')
+    fig.text(- 0.01, 0.5, 'Kernel density estimate', va='center', rotation='vertical')
     xy_leg1 = (0.5, -0.02)
 else:
     fig.text(0.04, 0.5, 'Kernel density estimate', va='center', rotation='vertical')
@@ -493,7 +507,7 @@ leg1 = fig.legend(handles[:6], labels[:6],
                     loc='upper center', 
                     frameon=False,
                     # mode = 'expand',
-                    title = '$\\bf{Plant \; community}$',
+                    title = 'Plant community',
                     bbox_to_anchor = xy_leg1, 
                     ncol=2)
 # legend for the years
@@ -517,10 +531,13 @@ plt.show()
 group_var = 'variable'
 xvar = 'deltaT'
 xlim = [-5,23] if xvar == 'deltaT' else None
-PATH_OUT = '../figures/Fig_S6.png' if xvar == 'deltaT' else '../../figures_and_maps/wdi/wdi_all_sites_both_years.png'
+PATH_OUT = '../figures/Fig_S10.png' 
 lw = 5
 
-fig, axs = plt.subplots(nrows = 3, figsize=(30,20), dpi = 200,sharex = True) # create subplot instance
+fig, axs = plt.subplots(nrows = 3, figsize=(30,30), dpi = 200,sharex = True) # create subplot instance
+
+# Adjust spacing between subplots and colorbar
+plt.subplots_adjust(hspace=.35) 
 
 # Create the subplots
 labs = ['a)','b)','c)']
@@ -549,7 +566,7 @@ for i,site in enumerate(sites):
     # Plot Densities in 2021
     h, l, ax = PlotDensities(df_sample, xvar,
                        ax = axs[i],
-                        xlim = xlim,
+                       xlim = xlim,
                        colors = colordict,
                        showSignif = False, 
                        data_pairtest = thsd,
@@ -567,7 +584,7 @@ for i,site in enumerate(sites):
     
     ax.get_legend().remove()
     
-    axs[i].text(.75, .9, labs[i] + ' ' + site, transform=axs[i].transAxes, weight='bold')
+    axs[i].text(-.05, 1.15, labs[i] + ' ' + site, transform=axs[i].transAxes, weight='bold')
  
 # Set the y-label for the entire figure
 fig.text(0.04, 0.5, 'Kernel density estimate', va='center', rotation='vertical')
@@ -578,7 +595,7 @@ leg1 = fig.legend(handles[:6], labels[:6],
                     loc='upper center', 
                     frameon=False,
                     # mode = 'expand',
-                    title = '$\\bf{Plant \; community}$',
+                    title = 'Plant community',
                     bbox_to_anchor=(0.5, -0.1), 
                     ncol=2)
 # legend for the years
@@ -586,6 +603,7 @@ leg2 = fig.legend(handles[7:], labels[7:],
                     loc='upper center', 
                     frameon=False,
                     # mode = 'expand',
+                    title  = 'Year',
                     bbox_to_anchor=(0.5, 0), 
                     ncol=2)
 
@@ -605,6 +623,7 @@ yvar = 'wdi'
 # Lists for the test result dataframes
 tt_list = list()
 thsd_list = list()
+wdi_diff_thsd_list = list()
 iqr_list = list()
 
 # create subplot instance for the TLB & Ridge plot that go to the suppl. materials
@@ -614,7 +633,7 @@ fig, axs = plt.subplots(nrows = 2, figsize=(30,20), dpi = 200)
 plt.subplots_adjust(hspace=.6) 
 
 # Create the subplots
-labs = ['a)','b)']
+labs = ['(a)','(b)']
 
 # create dummy subplot for CBH first
 _, _= plt.subplots() 
@@ -672,7 +691,7 @@ for i,site in enumerate(sites):
                            data_ttest = df_ttest,
                            showWater = True,
                            PATH_OUT=PATH_SAVE,
-                           saveFig = False)
+                           saveFig = True)
         plt.show()
     else:
         ax = PlotBoxWhisker(df_m_s, yvar,
@@ -686,7 +705,21 @@ for i,site in enumerate(sites):
                             saveFig = False)
         axs[i-1].text(-0.1, 1.3, labs[i-1] + ' ' + site, 
                       transform=axs[i-1].transAxes, weight='bold')
+    
+    mc20,mc21 = df_sample.loc[(df_sample.variable != 'water') & 
+                              (df_sample.variable != 'mud')].groupby(['year']).apply(lambda x: MultiComparison(x[yvar], x['variable']))
+
+    # Save test results in dataframe (for significance brackets in plot)
+    for i,mc_table in enumerate([mc20,mc21]):
+        thsd = pd.DataFrame(data = mc_table.tukeyhsd()._results_table.data[1:], 
+                            columns = mc_table.tukeyhsd()._results_table.data[0])
         
+        print(f'{2020+i}: \n', mc_table.tukeyhsd(), end = '\n')
+        
+        thsd['site'] = site
+        
+        # append results to list
+        thsd_list.append(thsd)
         
     # Multicomparison of WDI differences per plant community
     mask = np.logical_and(df_m_s.loc[df_m_s.year == 2020].variable != 'water',
@@ -695,7 +728,7 @@ for i,site in enumerate(sites):
     df_sample_2 = df_m_s.loc[df_m_s.year == 2020].loc[mask].sample(frac = 0.01,random_state = seed)
     
     mc_wdi = MultiComparison(df_sample_2['diff_wdi'], df_sample_2['variable'])
-    print(mc_wdi.tukeyhsd())
+    print('Difference test for WDI changes:',mc_wdi.tukeyhsd(), end = '\n')
     
     # Save test results in dataframe (for significance brackets in plot)
     thsd = pd.DataFrame(data = mc_wdi.tukeyhsd()._results_table.data[1:], 
@@ -703,7 +736,7 @@ for i,site in enumerate(sites):
     thsd['site'] = site
     
     # write Tukey HSD test table to list
-    thsd_list.append(thsd)
+    wdi_diff_thsd_list.append(thsd)
     
     print('done.')
  
@@ -712,26 +745,30 @@ plt.sca(axs[1])
 plt.show()
 
 # Export figure
-# fig.savefig('../figures/Fig_S11.png',bbox_inches = 'tight')
-
-# Export t-test results to csv
-df_wdi_iqr = pd.concat(iqr_list,axis =0).sort_values(['site','variable']).round(2).sort_index(level = 'year',axis=1)
-df_wdi_iqr.to_csv(f'./tables/results/Table_S13.csv', sep = ';')
+fig.savefig('../figures/Fig_S11.png',bbox_inches = 'tight')
 
 # Export t-test results to csv
 df_ttest = pd.concat(tt_list,axis =0).sort_values(['site','variable'])
-df_ttest.to_csv(f'./tables/results/Table_S12.csv', sep = ';')
+# df_ttest.to_csv(f'./tables/results/Table_S12.csv', sep = ';')
 
-# Export t-test table for WDI changes
-df_thsd = pd.concat(thsd_list,axis =0)
-df_thsd.to_csv(f'./tables/results/Table_S14.csv', sep=';', index = False)
+# Export IQR values to csv
+df_wdi_iqr = pd.concat(iqr_list,axis =0).sort_values(['site','variable']).round(2).sort_index(level = 'year',axis=1)
+# df_wdi_iqr.to_csv(f'./tables/results/Table_S13.csv', sep = ';')
+
+# Export Tukey HSD table for WDI changes
+# df_thsd = pd.concat(thsd_list[::2],axis =0).to_csv('./tables/results/Table_S14.csv', sep=';', index = False)
+# df_thsd = pd.concat(thsd_list[1::2],axis =0).to_csv('./tables/results/Table_S15.csv', sep=';', index = False)
+
+# Export Tukey HSD table for WDI changes
+df_wdi_diff_thsd = pd.concat(wdi_diff_thsd_list,axis =0)
+# df_wdi_diff_thsd.to_csv('./tables/results/Table_S16.csv', sep=';', index = False)
 
 # %% 3. COMPUTE & PLOT FCOVER IN 5 x 5 m GRID CELLS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # give window side length in number of pixels (33 px of 15 cm resolution make 4.95 m)
 windowsize = 33
 
-ylabel = 'Grid cell $\Delta WDI_{2020 - 2021}$(-)'
+ylabel = 'Grid cell $\Delta WDI_{2020 - 2021}$'
 
 # Set binning variables
 bin_var = 'meanT'
@@ -742,10 +779,10 @@ bin_interval = 1 if bin_var == 'fcover' else 0.005
 windowsize_m = int(round(windowsize*.15,0))
 
 # create figure instance and set theme for the TLB & Ridge plot that go to the suppl. materials
-fig, axs = plt.subplots(ncols = 2, figsize=(30,20), dpi = 200,sharey = True) 
+fig, axs = plt.subplots(ncols = 2, figsize=(45,20), dpi = 200,sharey = True) 
 
 # Create the subplots
-labs = ['a)','b)']
+labs = ['(a)','(b)']
 
 # create dummy subplot for CBH first
 _, _= plt.subplots() 
@@ -753,31 +790,35 @@ _, _= plt.subplots()
 for i,site in enumerate(sites):
     print(f'Mapping fCover in {site} ...')   
     
-    df_out = MapFcover_np(windowsize, I_cl_list[i],(I_wdi_20_list[i] - I_wdi_21_list[i]))
-
-    df_out = df_out.dropna()
+    if os.path.exists(f'./tables/intermediate/Table_Fig_S3_{site}.csv'):
+        df_out = pd.read_csv(f'./tables/intermediate/Table_Fig_S3_{site}.csv',sep = ';')
+    else:
+        df_out = MapFcover_np(windowsize, I_cl_list[i],(I_wdi_20_list[i] - I_wdi_21_list[i]))
+        df_out = df_out.dropna()
+        df_out.to_csv(f'./tables/intermediate/Table_Fig_S3_{site}.csv',sep = ';')
     
     df_m_s = df_list[i]
     
     label_order = df_m_s.variable.cat.categories.to_list()
     
-    
     PATH_SAVE = f'../figures/Fig_3_{site}.png'
     
     if site == 'CBH':
+        _, ax = plt.subplots(figsize=(45,20), dpi = 200) 
         # Plot CBH boxplot individually for main text
         ax,l,h,_ = PlotFcoverVsTemperature(data = df_out, 
-                                      binning_variable = bin_var,
-                                      bin_interval = bin_interval,
-                                      value_variable = val_var,
-                                      ylab = ylabel, 
-                                      yvar = 'meanT',
-                                      label_order = label_order,
-                                      colors = colordict,
-                                      model = 'cubic', 
-                                      plot_type = 'regplot',
-                                      PATH_OUT = PATH_SAVE,
-                                      saveFig = False)
+                                           ax = ax,
+                                           binning_variable = bin_var,
+                                           bin_interval = bin_interval,
+                                           value_variable = val_var,
+                                           ylab = ylabel, 
+                                           yvar = 'meanT',
+                                           label_order = label_order,
+                                           colors = colordict,
+                                           model = 'cubic', 
+                                           plot_type = 'regplot',
+                                           PATH_OUT = PATH_SAVE,
+                                           saveFig = True)
         plt.show()
         handles = h
         labels = l
@@ -811,7 +852,7 @@ leg1 = fig.legend(hand_adj,lab_adj,
                   loc='upper center', 
                   frameon=False,
                   # mode = 'expand',
-                  title = '$\\bf{Plant \; community}$',
+                  title = 'Plant community',
                   bbox_to_anchor = (0.5,0), 
                   ncol=2)
 
@@ -857,7 +898,7 @@ print('Mean SWin between first and last flight, 2021:',
   
 # create figure instance and set theme
 sns.set_theme(style="whitegrid",
-              font_scale = 2,
+              font_scale = 2.5,
               rc = {"axes.spines.right": False, "axes.spines.top": False})
 fig,axs = plt.subplots(1,3, figsize = (30,10))
 
@@ -880,7 +921,7 @@ def XDate(df_flighttimes,site,year,start):
 
 ylabs = ['Air temperature (°C)','Incoming shortwave radiation (W m$^{-2}$)','Wind speed (m$^{-s}$)']
 offsets = [1,30,.2]
-labs = ['a)','b)','c)']
+labs = ['(a)','(b)','(c)']
 
 conds = np.full((3, 3), False) # Boolean array for GetMeanTair function
 np.fill_diagonal(conds,True)
@@ -890,7 +931,8 @@ for i,var in enumerate(['Barani_Temp_2_Avg','CMP21_IN_Avg','Cup_2M_Avg']):
     p = [ axs[i].plot(df['time'],
                       df[var],
                       color = cc,
-                      marker = 'o',label = df.index.year[0]) for df,cc in zip(dfl,['brown','midnightblue'])]
+                      marker = 'o',linewidth = 3,
+                      label = df.index.year[0]) for df,cc in zip(dfl,['brown','midnightblue'])]
     axs[i].text(-0.1, 1.1, labs[i], transform=axs[i].transAxes, weight='bold')
     
     for site in ['TLB','CBH','Ridge']:
@@ -909,20 +951,26 @@ for i,var in enumerate(['Barani_Temp_2_Avg','CMP21_IN_Avg','Cup_2M_Avg']):
             axs[i].annotate(site,
                             xy = (XDate(df_flighttimes,site,year,start= True),
                                   ybar + offsets[i]), 
-                        color = color, transform = axs[i].transData,
-                        clip_on=False, annotation_clip=False,
-                        verticalalignment = 'center_baseline',
-                        horizontalalignment='left')
+                            color = color, transform = axs[i].transData,
+                            clip_on=False, annotation_clip=False,
+                            verticalalignment = 'bottom',
+                            horizontalalignment='left',
+                            rotation = 0)
             
     axs[i].set(ylabel = ylabs[i],
                xlabel = 'Local time')
     axs[i].xaxis.set_major_formatter(md.DateFormatter('%H:%M'))
-
+    axs[i].grid(False)
+    
+    # Thicken the axis spines
+    axs[i].spines['bottom'].set_linewidth(5)
+    axs[i].spines['left'].set_linewidth(5)
 
 fig.autofmt_xdate()
-fig.legend(p,labels = [2020,2021],loc = 'upper center',ncol = 2)
+fig.legend(p,labels = [2020,2021],loc = 'lower center',frameon = False,
+           ncol = 2, bbox_to_anchor=(0.5, -0.05) )
 
-PATH_OUT = r'..\figures\Fig_S2.png'
+PATH_OUT = r'..\figures\Fig_S4.png'
 plt.savefig(PATH_OUT,bbox_inches = 'tight',dpi=300)
 
 #%% 6 c. SPEI3:
@@ -936,7 +984,7 @@ df_spei['date'] = [datetime.date(year = int(x[1].year), month = int(x[1].month),
 summer_mask =  (df_spei.month >= 6) & (df_spei.month <= 8)
 df_spei_summer = df_spei[summer_mask]
 
-var_name = ['$SPEI_3$ (z-values)', '$SPEI_6$ (z-values)']
+var_name = ['$SPEI_3$', '$SPEI_6$']
 
 # group the data by year
 groups = df_spei.groupby(df_spei.year)
@@ -946,7 +994,7 @@ sns.set_theme(style="ticks",
               font_scale = 3)
 
 fig,axs = plt.subplots(2,1,figsize = (15,15),sharex = False)
-sub_label = [ 'a)', 'b)']
+sub_label = [ '(a)', '(b)']
 
 # obtain a colormap and normalize the line colors based on the year
 cmap = plt.cm.get_cmap('binary')
@@ -1012,10 +1060,16 @@ for i,spei in enumerate(['spei_3_months','spei_6_months']):
     axs[i].text(-0.15, 0.95,sub_label[i], 
                 transform=axs[i].transAxes,
                 fontweight='bold', va='top', ha='right')
+    
+    # Thicken the axis spines
+    axs[i].spines['bottom'].set_linewidth(2)
+    axs[i].spines['left'].set_linewidth(2)
+    
+sns.despine()
 
 
 # fig.suptitle('Standardized Precipitation-Evaporation Index (z-values)')
-plt.savefig('../figures/Fig_S1.png',bbox_inches = 'tight', facecolor='white')
+plt.savefig('../figures/Fig_S3.png',bbox_inches = 'tight', facecolor='white')
 
 # %% 6 c.ii Precipitation and temperature climatology
 
@@ -1040,13 +1094,18 @@ sns.set_theme(style="ticks",
               font_scale = 3)
 
 fig,axs = plt.subplots(2,1,figsize = (20,15),sharex = True)
-sub_label = [ 'a)', 'b)']
+sub_label = [ '(a)', '(b)']
 
 for i,var in enumerate(['precip','temp']):
     df_meteo_summer.plot(x = 'year',y = var,
                          ax = axs[i],
                          lw = 2, color = colors[i],
                          legend = False)
+    
+    axs[i].scatter(x = [2020,2021],
+                y = df_meteo_summer[var].iloc[-2:],
+                s = 2000,
+                facecolors='none', edgecolors=(0.5, 0.5, 0.5, 0.6), linewidths=5, marker='o')
     
     # Plot mean, 10th-percentile, and 90th-percentile as horizontal line
     for jj,q in enumerate([df_meteo_summer[var].mean(), 
@@ -1077,7 +1136,7 @@ for i,var in enumerate(['precip','temp']):
 axs[1].tick_params(axis='x', pad=20) 
     
 sns.despine()
-# plt.savefig('../figures/Fig_S_timeseries.png',bbox_inches = 'tight', facecolor='white')
+plt.savefig('../figures/Fig_S2.png',bbox_inches = 'tight', facecolor='white')
 
 plt.show()
 
@@ -1099,109 +1158,180 @@ from sklearn.metrics import r2_score
 fl = glob(r'C:\data\0_Kytalyk\0_drone\internal_data\metadata*.csv')
 
 unc_instr = .1
-cutoff = 13
 
 df = pd.concat(map(lambda fn:GatherData(fn, unc_instr, FitOnUnstable = False),fl), 
                ignore_index=False)
+sites = df.site.unique()
 
 sns.set_theme(style="ticks",
               # rc={"figure.figsize":(20, 10)},
-              font_scale = 2.5)
+              font_scale = 2.75)
+base_colors  = {'color': ["brown", "midnightblue"]}
 
-g = sns.FacetGrid(df, col="site",  row="year", sharex=True, margin_titles=True,
-                  height = 4, aspect = 1.5)
+fig, axs = plt.subplots(nrows = 2, ncols = 3, sharex = True, sharey = True, figsize = (20,10))
+legend_handles = []  # Store legend handles for the common legend
 
-g.map(sns.lineplot, "flighttime_min", "T_sensor", color = 'gray')
-g.map(sns.scatterplot, "flighttime_min", "T_sensor",'isStable',palette = "Paired",marker = '+')
+for i, ax in enumerate(axs.flat):
+    year = 2020 + i // 3
+    label = '(' + chr(97 + i) + ')'
+    site = sites[i//2]
 
-g.set(xlim=(0, 45), ylim=(25, 45), xticks=np.arange(0,50,5), yticks=np.arange(25,50,5))
-
-leg_text = 'Is the sensor temperature stable? \n i.e. within %.1f °C of the minimum?' % unc_instr
-g.add_legend(title = leg_text) # , loc = "lower center", bbox_to_anchor=(.35, -.3)
-
-g.set_titles(col_template="{col_name}")
-
-for ax, label in zip(g.axes.flat, ['a)', 'b)','c)','d)','e)','f)']):
-    ax.text(0.1, 1,label, 
-            transform=ax.transAxes,
-            fontweight='bold', va='top', ha='right')
-
-for year,margin_title in zip([2020,2021],g._margin_titles_texts):
-    margin_title.set_text(year)
-    margin_title.set_rotation(0)
+    mask = np.logical_and(df['year'] == year, df['site'] == site)
     
-g.set_axis_labels(y_var='', x_var='')
-g.fig.text(0.02, 0.5, 'Sensor temperature (°C)', va='center', rotation='vertical')
-g.fig.text(0.35,0.02, 'Flight time (minutes)', va='center', rotation='horizontal')
+    # Line plot
+    sns.lineplot(data = df[mask], x="flighttime_min", y="T_sensor", 
+                 color='gray', alpha = .7,ax=ax)
 
-# plt.savefig('./figures_and_maps/thermal_mosaics/Fig_S_sensordrift.png',bbox_inches = 'tight', facecolor='white')
+    # Scatter plot with color mapping
+    ncolors = 3
+    if year == 2020:
+        hue_palette = sns.light_palette("brown", n_colors=ncolors)[-2:]  # Brown tones for 2020
+    else:
+        hue_palette = sns.light_palette("midnightblue", n_colors=ncolors)[-2:]  # Blue tones for 2021
+
+    scatterplot = sns.scatterplot(data=df[mask], x="flighttime_min", y="T_sensor", hue='isStable',
+                    palette=hue_palette, hue_order=[False, True], marker='+', s = 100,
+                    ax=ax)
+
+    # Set x and y limits and ticks
+    ax.set(xlim=(0, 45), ylim=(25, 45), 
+           ylabel = '', xlabel = '',
+           xticks=np.arange(0, 50, 5), yticks=np.arange(25, 50, 5))
+
+    # Add label
+    ax.text(0.15, 1.1, label, transform=ax.transAxes, fontweight='bold', va='top', ha='right')
+
+    # Set title
+    if i//3 == 0:
+        ax.set_title(f'{sites[i]}', pad=10, fontweight='bold')
+    
+    # Remove the subplot legend
+    handles, labels = scatterplot.get_legend_handles_labels()
+    legend_handles.extend(handles)  # Collect handles for common legend
+
+fig.text(1, 0.75, '2020', va='center',ha = 'center', rotation='vertical',fontweight = 'bold')    
+fig.text(1, 0.25, '2021', va='center',ha = 'center', rotation='vertical',fontweight = 'bold')    
+
+# Set common x and y labels
+fig.text(-0.02, 0.5, 'Sensor temperature (°C)', va='center', rotation='vertical')
+fig.text(0.5, 0, 'Flight time (minutes)', va='center', rotation='horizontal', ha='center')
+
+# Create a common legend without duplicate labels
+legend_text = f'Is the sensor temperature stable, i.e., within {unc_instr:.1f} °C of the minimum?'
+unique_labels = list(set(labels))
+common_legend = fig.legend(legend_handles, unique_labels, title=legend_text,
+                           frameon = False,
+                           ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.2))
+
+
+# Remove individual subplot legends
+for ax in axs.flat:
+    ax.spines['top'].set_alpha(0)
+    ax.spines['right'].set_alpha(0)
+    ax.get_legend().remove()
+
+plt.tight_layout()
+plt.savefig('../figures/Fig_S5.png',bbox_inches = 'tight', facecolor='white')
 
 plt.show()
 
 # %% 6 e. PLOT SENSOR DRIFT
 plot_fit = 'fit_2'
+cutoff = 13
 
 r_sq = df.groupby(['site','year']).apply(lambda x: r2_score(x['LST_deviation'], x[plot_fit]))
 
 sns.set_theme(style="ticks",
               # rc={"figure.figsize":(20, 10)},
-              font_scale = 2.5)
+              font_scale = 2.75)
+base_colors  = {'color': ["brown", "midnightblue"]}
 
-g = sns.FacetGrid(df, col="site",  row="year", sharex=True, margin_titles=True,
-                  height = 4, aspect = 1.5)
-g.map(sns.lineplot, "T_sensor", plot_fit,color = 'orange')
+fig, axs = plt.subplots(nrows = 2, ncols = 3, sharex = True, sharey = True, figsize = (20,10))
+legend_handles = []  # Store legend handles for the common legend
 
-for i,site in enumerate(['Ridge','TLB']):
-    data = df.loc[(df.site==site) & (df.year == 2020)]
+for i, ax in enumerate(axs.flat):
+    year = 2020 + i // 3
+    label = '(' + chr(97 + i) + ')'
+    site = sites[i % 3]
     
-    for line in g.axes[0][i+1].lines[:2]:
-        line.set_alpha(0)
-        
-    sns.lineplot(data = data[data.flighttime_min <= cutoff],
-                 x = "T_sensor" ,y = plot_fit,
-                 color = 'orange', ax = g.axes[0][i+1])
-    sns.lineplot(data = data[data.flighttime_min > cutoff],
-                 x = "T_sensor" ,y = plot_fit,
-                 color = 'orange', ax = g.axes[0][i+1])
+    mask = np.logical_and(df['year'] == year, df['site'] == site)
+    
+    # Line plot
+    if site == 'CBH' or year == 2021:
+        sns.lineplot(data = df[mask], x="T_sensor", y=plot_fit, 
+                     color='black', ax=ax)
+    
+    elif site == 'TLB' and year == 2020 or site == 'Ridge' and year == 2020:
+        for line in ax.lines[:2]:
+            line.set_alpha(0)
+           
+        sns.lineplot(data = df[mask][df[mask].flighttime_min <= cutoff],
+                     x = "T_sensor" ,y = plot_fit,
+                     color = 'black', ax = ax)
+        sns.lineplot(data = df[mask][df[mask].flighttime_min > cutoff],
+                     x = "T_sensor" ,y = plot_fit,
+                     color = 'black', ax = ax)
+    
+    ax.axhline(0,c = 'gray',alpha = .2,ls = '--')
 
-g.map(lambda y, **kw: plt.axhline(0,c = 'gray',alpha = .2,ls = '--'),'LST_deviation')
-g.map(sns.scatterplot, "T_sensor", "LST_deviation", 'isStable',palette = 'Paired',alpha = .3)
+    # Scatter plot with color mapping
+    ncolors = 3
+    if year == 2020:
+        hue_palette = sns.light_palette("brown", n_colors=ncolors)[-2:]  # Brown tones for 2020
+    else:
+        hue_palette = sns.light_palette("midnightblue", n_colors=ncolors)[-2:]  # Blue tones for 2021
 
-g.set_axis_labels(y_var='', x_var='')
+    scatterplot = sns.scatterplot(data=df[mask], x="T_sensor", y="LST_deviation", hue='isStable',
+                    palette=hue_palette, hue_order=[False, True], s = 100,
+                    alpha = .3,
+                    ax=ax)
 
-# Set common y-axis label
-g.fig.text(0.02, 0.5, 'Correction temperature (°C)', va='center', rotation='vertical')
-# Set common x-axis label
-g.fig.text(0.35,0.02, 'Sensor temperature (°C)', va='center', rotation='horizontal')
+    # Set x and y limits and ticks
+    ax.set(xlim=(25, 45), ylim=(-15, 5), 
+           ylabel = '', xlabel = '',
+           xticks=np.arange(25,50,5), yticks=np.arange(-15,6,5))
 
-g.set(xlim=(25, 45), ylim=(-15, 5), xticks=np.arange(25,50,5), yticks=np.arange(-15,6,5))
+    # Add label
+    ax.text(0.15, 1.1, label, transform=ax.transAxes, fontweight='bold', va='top', ha='right')
 
-leg_text = 'Is the sensor temperature stable? \n i.e. within %.1f °C of the minimum?' % unc_instr
-g.add_legend(title = leg_text)
-
-g.set_titles(col_template="{col_name}")
-
-# Annotate a value into each bar in each plot
-for i,p in enumerate(g.axes.flat):
-    p.annotate("R$^2$ = {:.2f}".format(r_sq.iloc[i]) , 
-                (40,-12), # Placement
+    # Set title
+    if i//3 == 0:
+        ax.set_title(f'{sites[i]}', pad=10, fontweight='bold')
+    
+    # Remove the subplot legend
+    handles, labels = scatterplot.get_legend_handles_labels()
+    legend_handles.extend(handles)  # Collect handles for common legend
+    
+    # Annotate a value into each bar in each plot
+    ax.annotate("R$^2$ = {:.2f}".format(r_sq.iloc[i]) , 
+                (30 + (10 * i//3),-12), # Placement
                 ha='center', va='center', color='black', rotation=0, xytext=(0, 20),
                 textcoords='offset points')
+        
+fig.text(1, 0.75, '2020', va='center',ha = 'center', rotation='vertical',fontweight = 'bold')    
+fig.text(1, 0.25, '2021', va='center',ha = 'center', rotation='vertical',fontweight = 'bold')    
+
+# Set common x and y labels
+fig.text(-0.02, 0.5, 'Correction temperature (°C)', va='center', rotation='vertical')
+fig.text(0.5, 0, 'Sensor temperature (°C)', va='center', rotation='horizontal', ha='center')
+
+# Create a common legend without duplicate labels
+legend_text = f'Is the sensor temperature stable, i.e., within {unc_instr:.1f} °C of the minimum?'
+unique_labels = list(set(labels))
+common_legend = fig.legend(legend_handles, unique_labels, title=legend_text,
+                           frameon = False,
+                           ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.2))
 
 
-for year,margin_title in zip([2020,2021],g._margin_titles_texts):
-    margin_title.set_text(year)
-    margin_title.set_rotation(0)
+# Remove individual subplot legends
+for ax in axs.flat:
+    ax.spines['top'].set_alpha(0)
+    ax.spines['right'].set_alpha(0)
+    ax.get_legend().remove()
 
-for ax, label in zip(g.axes.flat, ['a)', 'b)','c)','d)','e)','f)']):
-    ax.text(0.1, 1,label, 
-            transform=ax.transAxes,
-            fontweight='bold', va='top', ha='right')
-    
-g.fig.subplots_adjust(top=0.9)
+plt.tight_layout()
 
-# plt.savefig('./figures_and_maps/thermal_mosaics/Fig_S_TcorrvsTsens.png',
-#             dpi = 200,bbox_inches = 'tight', facecolor='white')
+plt.savefig('../figures/Fig_S6.png',dpi = 200,bbox_inches = 'tight', facecolor='white')
 plt.show()
 
 
@@ -1213,7 +1343,9 @@ import xarray as xr
 
 np.random.seed(seed)
 
-labs = ['a)','b)','c)']
+variogram_list = list()
+
+labs = ['(a)','(b)','(c)']
 
 sns.set_theme(style="whitegrid",
               font_scale = 2,
@@ -1222,7 +1354,7 @@ sns.set_theme(style="whitegrid",
 fig,axs = plt.subplots(3,1,figsize = (15,10),sharex = True,sharey = True)
 
 for i, site in enumerate(['CBH','Ridge','TLB']):
-    PATH_21_TIR = rf'.\paper\data\mosaics\{site}_thermal_2021_resampled.tif'
+    PATH_21_TIR = rf'.\mosaics\{site}_thermal_2021_resampled.tif'
     
     T_air_21 = GetMeanTair(df_flighttimes, df_fluxtower, site, 2021)
     
@@ -1263,13 +1395,25 @@ for i, site in enumerate(['CBH','Ridge','TLB']):
                       n_lags = maxlag, # determines number of bins, if equal to maxlag, then bins have size of 1m
                       maxlag = maxlag)
     
+    variogram_list.append(V)
+# %% 
+sns.set_theme(style="ticks",
+              font_scale = 2,
+              rc = {"axes.spines.right": False, "axes.spines.top": False})
+
+fig,axs = plt.subplots(3,1,figsize = (15,10),sharex = True,sharey = True)
+
+for i, site in enumerate(['CBH','Ridge','TLB']):
+    V = variogram_list[i]
+    
     ax = axs[i]
     V.plot(axes = ax,grid = False)
     ax.axhline(V.parameters[1], ls = '--', color = 'gray') # horizontal for sill
     ax.axvline(V.parameters[0], ls = '--', color = 'gray') # vertical for range
     
-    ax.set(xlabel ='',
-            ylabel ='',title = site)
+    ax.set(xlabel ='',ylabel ='',
+           yticks = np.arange(0,6.5,2), yticklabels = np.arange(0,6.5,2))
+    ax.set_title(site, fontweight='bold')
 
     ax.annotate('Range = {:.1f} m'.format(V.parameters[0]),
                 (V.parameters[0] + 2, np.mean(ax.get_ylim())), 
@@ -1277,12 +1421,17 @@ for i, site in enumerate(['CBH','Ridge','TLB']):
                 clip_on=False, annotation_clip=False,
                 verticalalignment = 'center_baseline', horizontalalignment='left')
     ax.text(0.02, 1.1, labs[i], transform=ax.transAxes, weight='bold')
-
+    
+    ax.grid(False)
+    ax.spines['left'].set(linewidth = 2, edgecolor = 'black')  # Thicken the axis spines
+    ax.spines['bottom'].set(linewidth = 2, edgecolor = 'black')   # Thicken the axis spines
+    ax.tick_params(axis='x', width=2, length=5)
+    
 ax.set(xlabel ='Distance (m)')
 fig.text(-0.01, 0.5, 'Semivariance (matheron)', va='center', rotation='vertical')
 
 fig.tight_layout()
-fig.savefig('./figures_and_maps/thermal_mosaics/Fig_S_semivariogram.png',dpi = 200,bbox_inches = 'tight', facecolor='white')
+fig.savefig('../figures/Fig_S_semivariogram.png',dpi = 200,bbox_inches = 'tight', facecolor='white')
 
 # %% 6 g. TOMST TMS-4 differences
 try:
@@ -1304,20 +1453,6 @@ def aggregate_func(df):
         # df.groupby('Logger_SN').resample('D').agg(lambda x: x[0])[['custom_class','site']].reset_index(),
         on='Logger_SN')
 
-# plot seasonal averages, if False only look at flightday data
-seasonal = False
-
-if seasonal:
-    # Select data between 12:00 and 13:30
-    df_tmst_delta_noon = df_tmst_delta.between_time('11:00','13:30')
-    data_agg = aggregate_func(df_tmst_delta_noon)
-    text = 'seasonal'
-else:
-    # Select data on flightday in 2021
-    df_tmst_delta_flightday = df_tmst_delta.loc["2021-07-19"].between_time('13:50','16:30')
-    data_agg = aggregate_func(df_tmst_delta_flightday)
-    text = 'flightday'
-
 lbl = {'water':'Open water',
        'mud': 'Mud',
        'wet': 'LW1',
@@ -1326,52 +1461,83 @@ lbl = {'water':'Open water',
        'dry': 'HP1',
        'tussocksedge': 'TS'}
 
-# dT_air = ["dT2T3","dT1Tair",  "dT2Tair",  "dT3Tair" ]
+# yvar = ["dT2T3","dT1Tair",  "dT2Tair",  "dT3Tair" ]
 # col_titles = ['$T_2 - T_3$', '$T_1 - T_{air}$', '$T_2 - T_{air}$', '$T_3 - T_{air}$']
 
-dT_air = ["dT2Tair"]
-dT_air = ["soilmoisture"]
-col_titles = ['$T_2 - T_{air}$'] if dT_air == ["dT2Tair"] else ['Soil moisture']
-y_label = "Temperature difference (°C)" if dT_air == ["dT2Tair"] else 'Soil moisture count'
-
-
-# melt data frame to long format for facet grid
-df_melted = pd.melt(data_agg.loc[:,dT_air+['site','custom_class']], id_vars=['site', 'custom_class'],  value_name='T')
-df_melted[['site','variable','custom_class']] = df_melted[['site','variable','custom_class']].astype("category")
-
-# rename custom class to official labels
-df_melted['custom_class'] = df_melted['custom_class'].map(lbl)
-df_melted['site'] = df_melted['site'].map({'lakebed':'TLB','ridge':'Ridge'})
-
-# Map colors as new column for boxplot
-df_melted['color'] = df_melted['custom_class'].map(colordict)
+col_titles = '$T_2 - T_{air}$' if yvar == ["dT2Tair"] else 'Soil moisture'
 
 order = ['LW1','HP1','HP2','TS']
 palette = [colordict[x] for x in ['HP1','HP2','TS','LW1']]
 
 sns.set_theme(style="ticks", 
-              font_scale = 1)
+              rc = {"axes.spines.right": False, "axes.spines.top": False},
+              font_scale = 2.5)
 
-g = sns.FacetGrid(df_melted, row='site', col='variable', 
-                  margin_titles=True,height = 4, aspect = 1)
-g.map_dataframe(sns.boxplot, 'custom_class', 'T', 
+fig,axs = plt.subplots(nrows = 3, ncols = 2, figsize = (15,20))
+col_titles = ['TLB', 'Ridge']
+
+for i,ax in enumerate(axs.flat):
+    site = col_titles[i % 2]
+    label = '(' + chr(97 + i) + ')'
+    
+    if i // 2 == 0:
+        # Select data on flightday in 2021
+        df_tmst_delta_flightday = df_tmst_delta.loc["2021-07-19"].between_time('13:50','16:30')
+        data_agg = aggregate_func(df_tmst_delta_flightday)
+        text = 'flightday'
+        ylim = [0,10]
+    elif i // 2 == 1:
+        # Select data between 12:00 and 13:30
+        df_tmst_delta_noon = df_tmst_delta.between_time('11:00','13:30')
+        data_agg = aggregate_func(df_tmst_delta_noon)
+        text = 'seasonal'
+        ylim = [-2,6]
+        
+    if i // 2 < 2:
+        yvar = ["dT2Tair"]
+        ylab = '$T_2 - T_{air}$ (°C),' + '\n' + text
+
+    else:
+        yvar = ["soilmoisture"]
+        ylab = 'Raw soil moisture count'
+        ylim = [0, 4000]
+        
+    # melt data frame to long format for facet grid
+    df_melted = pd.melt(data_agg.loc[:,yvar+['site','custom_class']], id_vars=['site', 'custom_class'],  value_name='T')
+    df_melted[['site','variable','custom_class']] = df_melted[['site','variable','custom_class']].astype("category")
+
+    # rename custom class to official labels
+    df_melted['custom_class'] = df_melted['custom_class'].map(lbl)
+    df_melted['site'] = df_melted['site'].map({'lakebed':'TLB','ridge':'Ridge'})
+
+    # Map colors as new column for boxplot
+    df_melted['color'] = df_melted['custom_class'].map(colordict)
+    
+    # boxplot
+    sns.boxplot(df_melted[df_melted.site == site], x =  'custom_class', y = 'T', 
+                ax = ax,
                 hue = 'custom_class', palette = palette,
+                whis=[1, 99],
                 linewidth=.7, width=1, boxprops=dict(alpha=.7),
                 order = order, dodge = False,
                 fliersize=0.8)
-g.map(plt.axhline, color = 'gray',ls = '--',alpha = .5)
-
-row_titles = ['TLB', 'Ridge']
-
-# set the axis labels for the rows and columns
-g.set_axis_labels("", y_label)
-g.set_titles(row_template="{row_name}")
-
-for ax, title in zip(g.axes[0], col_titles):
-    ax.set_title(title)
     
-# plt.savefig(f'./figures_and_maps/tomst/Fig_S_Tdifferences_{text}.png',dpi = 200,
-#             bbox_inches = 'tight', facecolor='white')
+    # add horizontal grey line at 0
+    ax.axhline(color = 'gray',ls = '--',alpha = .5)
+    
+    # set figure aesthetics
+    ax.set(ylabel = ylab,ylim = ylim,xlabel = '')
+    ax.label_outer()
+    ax.get_legend().remove()
+
+    # Add label
+    ax.text(0.15, 1.1, label, transform=ax.transAxes, fontweight='bold', va='top', ha='right')
+
+fig.text(0.32, .91, 'TLB', fontweight='bold', va='center', rotation='horizontal', ha='center')
+fig.text(0.72, .91, 'Ridge', fontweight='bold', va='center', rotation='horizontal', ha='center')
+fig.align_ylabels(axs[:, 0])
+
+plt.savefig(f'../figures/Fig_S11.png',dpi = 200,bbox_inches = 'tight', facecolor='white')
 
 # save difference in deltaT's between groups TOMST vs. drone:
 from itertools import combinations
@@ -1404,4 +1570,4 @@ for s in ['TLB','Ridge']:
         
         i += 1
 # df_out.round(2).to_csv(f'./results/statistics/Suppl_Table_TOMST_{text}_Drone_reldiffs.csv',sep = ';')
-print(df_out)
+print(df_out.round(2))
