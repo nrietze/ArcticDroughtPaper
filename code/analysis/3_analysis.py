@@ -252,6 +252,17 @@ for i,site in enumerate(sites):
                                  I_cl_s,names,2021,'diff_wdi')
         df_tir['diff_wdi'] = df_wdi_diff.diff_wdi
         
+        if site == 'CBH':
+            from osgeo import gdal
+            import rioxarray as rxr
+            from skimage.io import imread
+
+            I_tpi_cbh = imread(r'C:\Users\nils\OneDrive - Universität Zürich UZH\Dokumente 1\1_PhD\5_CHAPTER1\data\wetness_index\TPI_CBH.tif')
+            I_tpi_cbh_s =  I_tpi_cbh[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
+            
+            df_tpi = MeltArrays(I_tpi_cbh_s,I_cl_s,names,2021,'tpi')
+            df_tir['tpi'] = df_tpi.tpi
+        
         # Generate random sample of size n per class and year:
         n = 20000
         
@@ -358,7 +369,9 @@ if Plot_Mosaic_Panels:
                         left = 0.1, right = 0.8,
                         hspace=0.1, wspace=0.1)  
     fig.tight_layout()
-    plt.savefig(f'../figures/Fig_S_{source}_overview.png',dpi = 200,bbox_inches = 'tight')
+    fname = '../figures/Fig_S7.png' if source == 'TIR' else '../figures/Fig_S8.png'
+    
+    plt.savefig(fname,dpi = 200,bbox_inches = 'tight')
 
 # write flight conditions to csv for Table 1 in main paper
 # df_tab1.to_csv('../data/tables/results/Tab1.csv',sep = ';')
@@ -427,13 +440,6 @@ for i,site in enumerate(sites):
     # thsd.to_csv(f'./tables/results/Table_S8_2020_{site}.csv', sep=';', index = False)
     
     print('done.')
-
-# %%
-for df_m_s in df_list:
-    df_m_s_stats = df_m_s.groupby(['year','variable']).describe()
-    cv = df_m_s_stats[('deltaT','std')] / df_m_s_stats[('deltaT','mean')] 
-    print(cv)
-
 
 # %% 1a. DENSITY PLOT IN ONE YEAR IN ALL SITES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -865,6 +871,17 @@ fig.savefig('../figures/Fig_S12.png',bbox_inches = 'tight')
 plt.sca(axs[1])
 plt.show()
 
+# %% 4. Plot NDVI vs LST
+base_palette = {2020: "brown",2021:"midnightblue"}
+
+sns.lmplot(
+    data=df_list[0],
+    x="ndvi", y="deltaT", col="variable",hue = 'year',
+    palette = base_palette,
+    col_wrap = 3,
+    height=5, scatter_kws={"s": 50, "alpha": .05}
+)
+
 # %% 6. SUPPLEMENTARY FIGURES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -919,7 +936,7 @@ def XDate(df_flighttimes,site,year,start):
                                           df_flighttimes.year == year)].end_time_local.dt.time.values[0]
         return datetime.datetime.combine(datetime.date.today(),t)
 
-ylabs = ['Air temperature (°C)','Incoming shortwave radiation (W m$^{-2}$)','Wind speed (m$^{-s}$)']
+ylabs = ['Air temperature (°C)','Incoming shortwave radiation (W m$^{-2}$)','Wind speed (m s$^{-1}$)']
 offsets = [1,30,.2]
 labs = ['(a)','(b)','(c)']
 
@@ -996,6 +1013,8 @@ sns.set_theme(style="ticks",
 fig,axs = plt.subplots(2,1,figsize = (15,15),sharex = False)
 sub_label = [ '(a)', '(b)']
 
+xlim = [5,9]
+
 # obtain a colormap and normalize the line colors based on the year
 cmap = plt.cm.get_cmap('binary')
 norm = plt.Normalize(df_spei.year.min(), df_spei.year.max())
@@ -1040,10 +1059,11 @@ for i,spei in enumerate(['spei_3_months','spei_6_months']):
     
     # Plot 10th-percentile as horizontal line
     axs[i].axhline(df_spei_summer[spei].quantile(.1),
+                   xmin = (6-xlim[0])/(xlim[1]-xlim[0]), xmax=(8-xlim[0])/(xlim[1]-xlim[0]),
                    ls = '--', lw = 2, color = 'k')
-    axs[i].annotate('10$^{th}$ percentile',
-                    xy = (5.2,df_spei_summer[spei].quantile(.1)), 
-                    xytext = (5.1, - 2.4),
+    axs[i].annotate('10$^{th}$ percentile (JJA)',
+                    xy = (6.2,df_spei_summer[spei].quantile(.1)), 
+                    xytext = (5.1, - 2.6),
                     va = 'top',transform = axs[i].transData,
                     arrowprops=dict(arrowstyle='->', color='black', lw = 2),
                     # bbox = dict(boxstyle='round', facecolor=(1, 1, 1, 0.7), edgecolor=(1, 1, 1, 0.7)),
@@ -1051,7 +1071,7 @@ for i,spei in enumerate(['spei_3_months','spei_6_months']):
     
     # set the axis labels and title
     axs[i].set(ylabel = var_name[i],
-               xlim = [5,9],
+               xlim = xlim,
                ylim = [-3.5, 3.5],
                yticks = np.arange(-3,4,1),
                yticklabels = np.arange(-3,4,1),
@@ -1190,7 +1210,7 @@ for i, ax in enumerate(axs.flat):
         hue_palette = sns.light_palette("midnightblue", n_colors=ncolors)[-2:]  # Blue tones for 2021
 
     scatterplot = sns.scatterplot(data=df[mask], x="flighttime_min", y="T_sensor", hue='isStable',
-                    palette=hue_palette, hue_order=[False, True], marker='+', s = 100,
+                    palette=hue_palette, hue_order=[False, True], marker='+', s = 200,
                     ax=ax)
 
     # Set x and y limits and ticks
@@ -1219,6 +1239,10 @@ fig.text(0.5, 0, 'Flight time (minutes)', va='center', rotation='horizontal', ha
 # Create a common legend without duplicate labels
 legend_text = f'Is the sensor temperature stable, i.e., within {unc_instr:.1f} °C of the minimum?'
 unique_labels = list(set(labels))
+
+for handle in legend_handles:
+    handle.set_sizes([200,200])
+
 common_legend = fig.legend(legend_handles, unique_labels, title=legend_text,
                            frameon = False,
                            ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.2))
@@ -1282,7 +1306,7 @@ for i, ax in enumerate(axs.flat):
         hue_palette = sns.light_palette("midnightblue", n_colors=ncolors)[-2:]  # Blue tones for 2021
 
     scatterplot = sns.scatterplot(data=df[mask], x="T_sensor", y="LST_deviation", hue='isStable',
-                    palette=hue_palette, hue_order=[False, True], s = 100,
+                    palette=hue_palette, hue_order=[False, True], s = 200,
                     alpha = .3,
                     ax=ax)
 
@@ -1304,7 +1328,7 @@ for i, ax in enumerate(axs.flat):
     
     # Annotate a value into each bar in each plot
     ax.annotate("R$^2$ = {:.2f}".format(r_sq.iloc[i]) , 
-                (30 + (10 * i//3),-12), # Placement
+                (30 + (10 * (i//3)),-12), # Placement
                 ha='center', va='center', color='black', rotation=0, xytext=(0, 20),
                 textcoords='offset points')
         
@@ -1318,6 +1342,10 @@ fig.text(0.5, 0, 'Sensor temperature (°C)', va='center', rotation='horizontal',
 # Create a common legend without duplicate labels
 legend_text = f'Is the sensor temperature stable, i.e., within {unc_instr:.1f} °C of the minimum?'
 unique_labels = list(set(labels))
+
+for handle in legend_handles:
+    handle.set_sizes([200,200])
+    
 common_legend = fig.legend(legend_handles, unique_labels, title=legend_text,
                            frameon = False,
                            ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.2))
@@ -1335,7 +1363,7 @@ plt.savefig('../figures/Fig_S6.png',dpi = 200,bbox_inches = 'tight', facecolor='
 plt.show()
 
 
-# %% 6 f. Plot semivariogram
+# %% 6 f. Compute semivariograms
 import skgstat as skg
 from osgeo import gdal
 import rioxarray as rxr
@@ -1396,7 +1424,7 @@ for i, site in enumerate(['CBH','Ridge','TLB']):
                       maxlag = maxlag)
     
     variogram_list.append(V)
-# %% 
+# %% 6 f.ii Plot semivariogram
 sns.set_theme(style="ticks",
               font_scale = 2,
               rc = {"axes.spines.right": False, "axes.spines.top": False})
@@ -1431,7 +1459,7 @@ ax.set(xlabel ='Distance (m)')
 fig.text(-0.01, 0.5, 'Semivariance (matheron)', va='center', rotation='vertical')
 
 fig.tight_layout()
-fig.savefig('../figures/Fig_S_semivariogram.png',dpi = 200,bbox_inches = 'tight', facecolor='white')
+fig.savefig('../figures/Fig_S9.png',dpi = 200,bbox_inches = 'tight', facecolor='white')
 
 # %% 6 g. TOMST TMS-4 differences
 try:
