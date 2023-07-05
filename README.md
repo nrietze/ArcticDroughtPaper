@@ -8,6 +8,8 @@ Code for the thermoregulation study.
 There are three code folders that serve for the different processing steps in this study. Here is the structure and the included files in each folder:
 
 ```bash
+│   environment.yml
+│
 ├───analysis
 │   │   3_analysis.py
 │   │   4_spei.R
@@ -32,6 +34,13 @@ There are three code folders that serve for the different processing steps in th
 
 [to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
 
+## Software requirements
+The data pre-processing and data analysis was using Python 3.10.6, pandas (0.24.2), GDAL 3.5.2 and R 4.2.2. Newer versions of these software packages will likely work, but have not been tested. You can find the conda environments as `.yml` files in this repository. The file `drone.yml` can be used to build the environment neccessary for the drift correction. The file `environment.yml`can be used to build a conda environment for the analysis.
+
+Code development and processing were carried out in Windows 10 (64 bit), but execution should (in theory) be platform independent.
+
+[to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
+
 ## Contact
 Code development and maintenance: Nils Rietze (nils.rietze@uzh.ch)
 
@@ -47,4 +56,5 @@ From the manuscript:
 When citing elements in this repository, please cite as:
 
 Rietze, Nils, Assmann, Jakob J., Damm, Alexander, Naegeli, Kathrin, Karsanaev, Sergey V., Maximov, Trofim C.,Plekhanova, Elena, Schaepman-Strub, Gabriela. *in prep*. Summer drought weakens land surface cooling by tundra vegetation. 
+
 [to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
