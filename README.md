@@ -1,10 +1,9 @@
-# ArcticThermoregulation
-Code for the thermoregulation study.
-- Nils Rietze - nils.rietze@uzh.ch
+# Code and documentation
+This repository contains the code used in Rietze et al. (*in prep*): Summer drought weakens land surface cooling by tundra vegetation.
 
-- Thermoregulaiton in the Siberian tundra
+The necessary data is publicly available under **ZENODO link**.
 
-## Repo structure:
+## Repository structure:
 There are three code folders that serve for the different processing steps in this study. Here is the structure and the included files in each folder:
 
 ```bash
