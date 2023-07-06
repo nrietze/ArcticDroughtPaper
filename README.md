@@ -1,7 +1,7 @@
 # Code and documentation
 This repository contains the code used in Rietze et al. (*in prep*): Summer drought weakens land surface cooling by tundra vegetation.
 
-The necessary data is publicly available under ![DOI](https://doi.org/doi.org10.5281/zenodo.7886426).
+The necessary data is publicly available under [DOI](https://doi.org/doi.org10.5281/zenodo.7886426).
 
 ## Repository structure:
 There are three code folders that serve for the different processing steps in this study. Here is the structure and the included files in each folder:
