@@ -20,4 +20,4 @@
 *.ipynb
 /.ipynb_checkpoints
 *.html
-**/**/_pycache_/
+**/**/__pycache__/
