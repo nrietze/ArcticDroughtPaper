@@ -7,29 +7,33 @@ The necessary data is publicly available under [![DOI](https://img.shields.io/ba
 There are three code folders that serve for the different processing steps in this study. Here is the structure and the included files in each folder:
 
 ```bash
-│   environment.yml
+├───code
+│   │   environment.yml
+│   │
+│   ├───analysis
+│   │   │   3_analysis.py
+│   │   │   4_spei.R
+│   │   │   FigFunctions.py
+│   │   
+│   ├───classification
+│   │   │   0_resampling.py
+│   │   │   1_1_prep_classification.py
+│   │   │   1_1_runGLCM.R
+│   │   │   1_classification.py
+│   │   │   modules.py
+│   │
+│   └───thermal_drift_correction
+│           main.py
+│           modules.py
+│           pydrone.yml
 │
-├───analysis
-│   │   3_analysis.py
-│   │   4_spei.R
-│   │   FigFunctions.py
-│
-├───classification
-│   │   0_resampling.py
-│   │   1_1_prep_classification.py
-│   │   1_1_runGLCM.R
-│   │   1_classification.py
-│   │   modules.py
-│
-└───thermal_drift_correction
-        main.py
-        modules.py
-        pydrone.yml
+└───data
 ```
 
 - The scripts in `analysis` are used to generate the main and supplementary figures as well as the supporting tables.
 - The scripts in `classification` are used to prepare the drone imagery and run the random forest classification.
 - The scripts in `thermal_drift_correction` are used to remove the temperature drift for all images in a thermal flight.
+- The folder `data` is empty and should contain the data that can be downloaded from Zenodo (see link on top).
 
 [to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
 
