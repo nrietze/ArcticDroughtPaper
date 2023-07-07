@@ -15,3 +15,9 @@
 *README.html
 *README_cache/
 #*README_files/
+
+# Ignore the following files and folders
+*.ipynb
+/.ipynb_checkpoints
+*.html
+**/**/_pycache_/
