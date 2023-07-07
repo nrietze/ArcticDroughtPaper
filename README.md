@@ -34,7 +34,7 @@ There are three code folders that serve for the different processing steps in th
 [to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
 
 ## Software requirements
-The data pre-processing and data analysis was using Python 3.10.6, pandas (0.24.2), GDAL 3.5.2 and R 4.2.2. Newer versions of these software packages will likely work, but have not been tested. You can find the conda environments as `.yml` files in this repository. The file `drone.yml` can be used to build the environment neccessary for the drift correction. The file `environment.yml`can be used to build a conda environment for the analysis.
+The data pre-processing and data analysis was using Python 3.10.6, pandas (0.24.2), GDAL 3.5.2 and R 4.2.2. Newer versions of these software packages will likely work, but have not been tested. You can find the conda environments as `.yml` files in this repository. The file `drone.yml` can be used to build the environment neccessary for the drift correction. The file `environment.yml`can be used to build a conda environment for the scripts used in the classification and analysis.
 
 Code development and processing were carried out in Windows 10 (64 bit), but execution should (in theory) be platform independent.
 
