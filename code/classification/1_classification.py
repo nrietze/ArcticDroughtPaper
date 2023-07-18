@@ -54,11 +54,13 @@ from modules import GatherGLCM, fitting_rf_for_region
 # %% Set variables
 seed = 15  
 
-predict = True
-plot_results = True
+predict = False
+plot_results = False
 
 TIF_PATH = "../../../data/"
 os.chdir(TIF_PATH)
+
+sites = ['CBH', 'Ridge', 'TLB']
 
 # Dictionary of community names for label data
 lbl = {'OpenWater':'Open water',
@@ -93,7 +95,7 @@ for year in [2020,2021]:
         label_order = ['HP1','HP2','LW1','LW2','TS','Open water','Mud']
         labdat['label'] = labdat.label.astype("category").cat.set_categories(label_order, ordered=True)
         
-    for site in ['TLB','Ridge','CBH']: # 
+    for j,site in enumerate(sites): # 
         # Define spectral bands and indices used for classification
         if year == 2020:
             featurenames = ['b','g','BCC', 'GCC', 'RCC', 'NDVI']
@@ -166,38 +168,44 @@ for year in [2020,2021]:
         test_size = 0.2
     
         # Shuffle the label dataframe
-        labdat = labdat.sample(frac=1)
-    
-        labdat_train, labdat_test = train_test_split(labdat.loc[labdat.region == site],
-                                                      test_size = test_size, 
-                                                      random_state = seed,
-                                                      stratify = labdat.loc[labdat.region == site,'id'])
+        labdat = labdat.sample(frac=1, random_state = seed)
         
-        # Train RF classifier
+        # Split the polygon data into training set (80%) and test set (20%) with stratification by polygon ('id')
+        labdat_train, labdat_test = train_test_split(labdat.loc[labdat.region == site],
+                                                     test_size = test_size, 
+                                                     random_state = seed,
+                                                     stratify = labdat.loc[labdat.region == site,'id'])
+        
+        # Train RF classifier using the indices in featurenames
         dct = fitting_rf_for_region(labdat_train,
                                     featurenames,
                                     excl_low_imp = False, 
                                     plot_importance = False) 
         clf = dct["clf"]
         featurenames = dct["featurenames"]
+        
+        # predict classes for the test set
         ypred = clf.predict(labdat_test[featurenames])
     
         classes = labdat_test['label'].unique()
         
+        # generate confusion matrix
         cfm = confusion_matrix(y_true = labdat_test['label'], 
                                y_pred = ypred, 
                                labels = classes)
-    
+        
+        # compute accuracy scores
         kappa = cohen_kappa_score(labdat_test['label'], ypred)
         acc_pct = accuracy_score(labdat_test['label'],ypred) * 100
         
-        # confusion matrix into dataframe
+        # convert confusion matrix into dataframe
         df_cfm = pd.DataFrame(cfm, index = classes, columns = classes) 
         
         # reorder confusion matrix
         new_order = [n for n in label_order if n in classes]
         df_cfm = df_cfm.reindex(index=new_order, columns=new_order)
         
+        # compute user and produces accuracies
         df_cfm['total'] = df_cfm.sum(axis=1)
         df_cfm['PA'] = np.diag(df_cfm) / df_cfm['total'] * 100
         df_cfm.loc['total',new_order] = df_cfm.sum(axis=0)
@@ -205,10 +213,14 @@ for year in [2020,2021]:
         df_cfm.loc['total','total'] = cfm.sum()
         df_cfm.loc['UA','PA'] = np.diag(cfm).sum() / cfm.sum() * 100 # overall accuracy
         
-        df_cfm.round(2).to_csv(f'./tables/confusion_matrix_{site}_{year}.csv',sep = ';')
+        # save confusion matrices as csv to the results folder
+        if year == 2021:
+            df_cfm.round(2).to_csv(f'./tables/results/Table_S{j+4}.csv',sep = ';')
+            
         print('Overall accuracy:',acc_pct)
         
-        with open(f'./tables/classification_report_{site}_{year}.txt', "a") as f:
+        # Save the classification report to a text file
+        with open(f'./tables/intermediate/classification_report_{site}_{year}.txt', "w") as f:
             print(featurenames, file = f)
             print(classification_report(y_true = labdat_test['label'], 
                                         y_pred = ypred, 
