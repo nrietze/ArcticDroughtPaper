@@ -69,7 +69,7 @@ def fitting_rf_for_region(labdat, featurenames, excl_low_imp, plot_importance = 
         
     if plot_importance:
         # plot feature importance
-        forest_importances = pd.Series(importance, index=featurenames)
+        forest_importances = pd.Series(importance, index=featurenames).sort_values(ascending = False)
         std = np.std([tree.feature_importances_ for tree in clf.estimators_], axis=0)
         
         fig, ax = plt.subplots()

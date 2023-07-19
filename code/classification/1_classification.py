@@ -100,8 +100,21 @@ for year in [2020,2021]:
         if year == 2020:
             featurenames = ['b','g','BCC', 'GCC', 'RCC', 'NDVI']
         else:
-            featurenames = ['b','g','BCC', 'GCC', 'RCC', 'NDVI',
+            featurenames_1 = ['b','g','BCC', 'GCC', 'RCC', 'NDVI',
                             'v_bcc','m_green','h_red','m_red'] 
+            
+            # the 10 most important features for the 2021 TLB RF
+            featurenames = ['m_blue', 'v_ndvi', 'm_ndvi', 
+                            'm_green', 'v_blue', 'm_red', 'v_red',
+                            'b', 'BCC', 'm_rededge']
+            
+            # featurenames = ['b', 'g', 'r', 're', 'nir', 'RCC', 'NDVI', 'GCC', 'BCC', 'm_bcc',
+            #                 'v_bcc', 'h_bcc', 'd_bcc', 'm_blue', 'v_blue', 'h_blue', 'd_blue',
+            #                 'm_gcc', 'v_gcc', 'h_gcc', 'd_gcc', 'm_green', 'v_green', 'h_green',
+            #                 'd_green', 'm_ndvi', 'v_ndvi', 'h_ndvi', 'd_ndvi', 'm_nir', 'v_nir',
+            #                 'h_nir', 'd_nir', 'm_rcc', 'v_rcc', 'h_rcc', 'd_rcc', 'm_rededge',
+            #                 'v_rededge', 'h_rededge', 'd_rededge', 'm_red', 'v_red', 'h_red',
+            #                 'd_red'] 
     
         print(f'Processing {site} {year}...', end='\n')
         
@@ -168,7 +181,7 @@ for year in [2020,2021]:
         test_size = 0.2
     
         # Shuffle the label dataframe
-        labdat = labdat.sample(frac=1, random_state = seed)
+        labdat = labdat.sample(frac=1, random_state = 3)
         
         # Split the polygon data into training set (80%) and test set (20%) with stratification by polygon ('id')
         labdat_train, labdat_test = train_test_split(labdat.loc[labdat.region == site],
@@ -180,7 +193,7 @@ for year in [2020,2021]:
         dct = fitting_rf_for_region(labdat_train,
                                     featurenames,
                                     excl_low_imp = False, 
-                                    plot_importance = False) 
+                                    plot_importance = True) 
         clf = dct["clf"]
         featurenames = dct["featurenames"]
         
@@ -237,6 +250,7 @@ for year in [2020,2021]:
             ax.set_ylabel( 'True', fontdict=dict(weight='bold'))
             ax.set_title('Cohens Kappa = %.2f' % kappa, fontdict=dict(weight='bold'))
             ax.set_xticklabels(ax.get_xticklabels(), rotation = 30, horizontalalignment = 'right')
+            
             ax.figure.savefig(f'../figures/classification/confusion_matrix_{site}_{year}.png',
                               bbox_inches = 'tight')
             plt.close()

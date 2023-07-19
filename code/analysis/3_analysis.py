@@ -535,7 +535,7 @@ plt.show()
 # %% 1b. DENSITY PLOT IN BOTH YEAR IN ALL SITES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 group_var = 'variable'
-xvar = 'deltaT'
+xvar = 'wdi'
 xlim = [-5,23] if xvar == 'deltaT' else None
 PATH_OUT = '../figures/Fig_S10.png' 
 lw = 5
@@ -617,7 +617,7 @@ leg2 = fig.legend(handles[7:], labels[7:],
 fig.add_artist(leg1)
 fig.add_artist(leg2)
 
-fig.savefig(PATH_OUT,bbox_inches = 'tight')
+# fig.savefig(PATH_OUT,bbox_inches = 'tight')
 
 plt.show()    
 
@@ -670,7 +670,7 @@ for i,site in enumerate(sites):
     df_sample = df_m_s.groupby(['variable','year']).sample(frac = 0.1)
     
     # Welch's ttest for unequal variances between years
-    alpha = .05
+    alpha = .01
     ttest = df_sample.groupby(['variable']).apply(lambda x: ttest_ind(x.loc[x.year==2020,yvar],
                                                                       x.loc[x.year==2021,yvar], 
                                                                       equal_var=False))
@@ -682,6 +682,11 @@ for i,site in enumerate(sites):
     
     # Mean WDI differences between years for each group
     df_ttest['meandiff'] = df_sample.groupby(['variable']).apply(lambda x: round(x.loc[x.year == 2020,'wdi'].mean() - x.loc[x.year == 2021,'wdi'].mean(),2))
+    
+    df_ttest['mean_wdi_2021'] = df_sample.groupby(['variable']).apply(lambda x: round(x.loc[x.year == 2021,'wdi'].mean(),2))
+    
+    # Relative increase in mean WDI from 2021 to 2020 (% increase)
+    df_ttest['pct_change'] = round(df_ttest['meandiff'] / df_ttest['mean_wdi_2021'] * 100,2)
     
     # write t-test table to list
     tt_list.append( df_ttest)
@@ -751,12 +756,12 @@ plt.sca(axs[1])
 plt.show()
 
 # Export figure
-fig.savefig('../figures/Fig_S11.png',bbox_inches = 'tight')
+# fig.savefig('../figures/Fig_S11.png',bbox_inches = 'tight')
 
 # Export t-test results to csv
 df_ttest = pd.concat(tt_list,axis =0).sort_values(['site','variable'])
 # df_ttest.to_csv(f'./tables/results/Table_S12.csv', sep = ';')
-
+# 
 # Export IQR values to csv
 df_wdi_iqr = pd.concat(iqr_list,axis =0).sort_values(['site','variable']).round(2).sort_index(level = 'year',axis=1)
 # df_wdi_iqr.to_csv(f'./tables/results/Table_S13.csv', sep = ';')
@@ -988,7 +993,27 @@ fig.legend(p,labels = [2020,2021],loc = 'lower center',frameon = False,
            ncol = 2, bbox_to_anchor=(0.5, -0.05) )
 
 PATH_OUT = r'..\figures\Fig_S4.png'
-plt.savefig(PATH_OUT,bbox_inches = 'tight',dpi=300)
+# plt.savefig(PATH_OUT,bbox_inches = 'tight',dpi=300)
+
+# %% temporary:
+# Check if the TIMESTAMP of the flux tower data is offset
+
+f,axs = plt.subplots(nrows = 2,figsize = (10,6),sharey = True)
+
+for i,year in enumerate([2020,2021]):
+    # select a date range for each year
+    if year == 2020:
+        start_date = '19-07-2020'; end_date = '27-07-2020'
+    else:
+        start_date = '14-07-2021'; end_date = '23-07-2021'
+        
+    mask = (df_fluxtower.index > start_date) & (df_fluxtower.index <= end_date)
+    
+    ax = axs[i]
+    
+    df_fluxtower.loc[start_date:end_date].Rn_CNR1_Avg.plot(ax=ax)
+    
+    plt.show()
 
 #%% 6 c. SPEI3:
 # --------
@@ -1156,7 +1181,7 @@ for i,var in enumerate(['precip','temp']):
 axs[1].tick_params(axis='x', pad=20) 
     
 sns.despine()
-plt.savefig('../figures/Fig_S2.png',bbox_inches = 'tight', facecolor='white')
+# plt.savefig('../figures/Fig_S2.png',bbox_inches = 'tight', facecolor='white')
 
 plt.show()
 
@@ -1238,14 +1263,14 @@ fig.text(0.5, 0, 'Flight time (minutes)', va='center', rotation='horizontal', ha
 
 # Create a common legend without duplicate labels
 legend_text = f'Is the sensor temperature stable, i.e., within {unc_instr:.1f} °C of the minimum?'
-unique_labels = list(set(labels))
+unique_labels = labels * 2
 
 for handle in legend_handles:
     handle.set_sizes([200,200])
 
-common_legend = fig.legend(legend_handles, unique_labels, title=legend_text,
+common_legend = fig.legend(legend_handles[4:8], unique_labels, title=legend_text,
                            frameon = False,
-                           ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.2))
+                           ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.25))
 
 
 # Remove individual subplot legends
@@ -1341,14 +1366,14 @@ fig.text(0.5, 0, 'Sensor temperature (°C)', va='center', rotation='horizontal',
 
 # Create a common legend without duplicate labels
 legend_text = f'Is the sensor temperature stable, i.e., within {unc_instr:.1f} °C of the minimum?'
-unique_labels = list(set(labels))
+unique_labels = labels * 2
 
 for handle in legend_handles:
     handle.set_sizes([200,200])
     
-common_legend = fig.legend(legend_handles, unique_labels, title=legend_text,
+common_legend = fig.legend(legend_handles[4:8], unique_labels, title=legend_text,
                            frameon = False,
-                           ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.2))
+                           ncol=2, loc='lower center', bbox_to_anchor=(0.5, -0.25))
 
 
 # Remove individual subplot legends
