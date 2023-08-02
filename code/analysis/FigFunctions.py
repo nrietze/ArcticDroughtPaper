@@ -57,7 +57,7 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         
     lw = 8
     
-    xlab = 'Water deficit index (-)' if xvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)'
+    xlab = 'Water deficit index (-)' if xvar == 'wdi' else '$\Delta T_{surf-air}$ (°C)'
     
     lbl = {'water':'Open water',
            'mud': 'Mud',
@@ -512,6 +512,15 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
         
     
     if plot_type == 'regplot':
+        point_size = 90
+        
+        darker_colors = {'HP1': '#93de00',
+                         'HP2': '#38A800',
+                         'LW1': '#00FFC5',
+                         'LW2': '#A90EFF',
+                         'TS': '#3D3242',
+                         'mud': '#734C00',
+                         'water': '#005CE6'}
         
         if ax == None:
             sns.set_theme(font_scale = 2)
@@ -521,8 +530,8 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
                 x = 'fcover', y = yvar, 
                 hue="classes",
                 hue_order = label_order,
-                palette = colors,
-                s = 55
+                palette = darker_colors,
+                s = point_size
             )
             
         else: 
@@ -531,8 +540,8 @@ def PlotFcoverVsTemperature(data: pd.DataFrame,
                 x = 'fcover', y = yvar, 
                 hue="classes",
                 hue_order = label_order,
-                palette = colors,
-                s = 55,
+                palette = darker_colors,
+                s = point_size,
                 ax = ax
             )
         

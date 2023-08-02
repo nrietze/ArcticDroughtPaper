@@ -20,10 +20,10 @@ import rasterio
 
 from skimage.io import imread
 
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, LeaveOneGroupOut, cross_val_score
 
 from sklearn.metrics import confusion_matrix, cohen_kappa_score, classification_report
-from sklearn.metrics import accuracy_score
+from sklearn.metrics import make_scorer, accuracy_score
 
 from skimage.morphology import rectangle   # for Structuring Elements (e.g. disk, rectangle)
 from skimage.filters.rank import modal # for applying the majority filter
@@ -48,12 +48,14 @@ class ProgressParallel(Parallel):
         self._pbar.n = self.n_completed_tasks
         self._pbar.refresh()
 
+os.chdir('./paper/github/code/classification')
 
 from modules import GatherGLCM, fitting_rf_for_region
 
 # %% Set variables
 seed = 15  
 
+run_CV = True
 predict = False
 plot_results = False
 
@@ -100,14 +102,10 @@ for year in [2020,2021]:
         if year == 2020:
             featurenames = ['b','g','BCC', 'GCC', 'RCC', 'NDVI']
         else:
-            featurenames_1 = ['b','g','BCC', 'GCC', 'RCC', 'NDVI',
+            featurenames = ['b','g','BCC', 'GCC', 'RCC', 'NDVI',
                             'v_bcc','m_green','h_red','m_red'] 
             
-            # the 10 most important features for the 2021 TLB RF
-            featurenames = ['m_blue', 'v_ndvi', 'm_ndvi', 
-                            'm_green', 'v_blue', 'm_red', 'v_red',
-                            'b', 'BCC', 'm_rededge']
-            
+            # All features
             # featurenames = ['b', 'g', 'r', 're', 'nir', 'RCC', 'NDVI', 'GCC', 'BCC', 'm_bcc',
             #                 'v_bcc', 'h_bcc', 'd_bcc', 'm_blue', 'v_blue', 'h_blue', 'd_blue',
             #                 'm_gcc', 'v_gcc', 'h_gcc', 'd_gcc', 'm_green', 'v_green', 'h_green',
@@ -254,6 +252,33 @@ for year in [2020,2021]:
             ax.figure.savefig(f'../figures/classification/confusion_matrix_{site}_{year}.png',
                               bbox_inches = 'tight')
             plt.close()
+        
+        # 3.b) CROSS-VALIDATE
+        if run_CV and year == 2021:
+            print('Cross validating...', end = '\n')
+
+            scoring = {"Accuracy": make_scorer(accuracy_score)}
+            logo = LeaveOneGroupOut()
+        
+            scores = cross_val_score(clf, n_jobs = 3, 
+                                    X = labdat_test[featurenames], 
+                                    y = labdat_test["label"],
+                                    cv= logo, groups = labdat_test.id,
+                                    scoring = make_scorer(accuracy_score))
+            with open(f'./tables/intermediate/classification_report_{site}_{year}.txt', "a") as f:
+                print("%0.2f accuracy with a standard deviation of %0.2f" % 
+                      (scores.mean(), scores.std()), file = f)
+                print(scores, file = f)
+        
+            # Use cross_validate, if estimator, time, etc. is needed
+            # scores = cross_validate(clf, n_jobs = 3,
+            #                         X = labdat_train[featurenames], 
+            #                         y = labdat_train["label"],
+            #                         cv= logo, groups = labdat_train.id,
+            #                         scoring = make_scorer(accuracy_score))
+            # print("%0.2f accuracy with a standard deviation of %0.2f" % 
+            #       (scores['test_score'].mean(), scores['test_score'].std()))        
+
     
     
         # 4. PREDICT SCENE

@@ -19,13 +19,12 @@ from statsmodels.stats.multicomp import MultiComparison
 from scipy.stats import ttest_ind, ttest_rel
 
 import sys, os
+os.chdir(r'C:\Users\nils\OneDrive - Universität Zürich UZH\Dokumente 1\1_PhD\5_CHAPTER1\paper\github\code\analysis')
 
 from FigFunctions import read_fluxtower,GetMeanTair,PrepRasters,MeltArrays,ScaleMinMax,DifferenceTest,pretty_table,ProgressParallel,PlotDensities,PlotBoxWhisker,PlotFcoverVsTemperature,MapFcover_np,PolyFitSensorT,GatherData
 
 # %% 0. LOAD DATA & PREALLOCATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-os.chdir(r'C:\Users\nils\OneDrive - Universität Zürich UZH\Dokumente 1\1_PhD\5_CHAPTER1\paper\github\code\analysis')
 
 # configure variables
 seed = 15
@@ -446,7 +445,7 @@ for i,site in enumerate(sites):
 group_var = 'variable'
 xvar = 'deltaT'
 xlim = [7,25] if xvar == 'deltaT' else None
-PATH_OUT = '../figures/Fig_1.png' 
+PATH_OUT = '../figures/Fig_2.png' 
 lw = 5
 showSignif = True
 
@@ -535,7 +534,7 @@ plt.show()
 # %% 1b. DENSITY PLOT IN BOTH YEAR IN ALL SITES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 group_var = 'variable'
-xvar = 'wdi'
+xvar = 'deltaT'
 xlim = [-5,23] if xvar == 'deltaT' else None
 PATH_OUT = '../figures/Fig_S10.png' 
 lw = 5
@@ -617,7 +616,7 @@ leg2 = fig.legend(handles[7:], labels[7:],
 fig.add_artist(leg1)
 fig.add_artist(leg2)
 
-# fig.savefig(PATH_OUT,bbox_inches = 'tight')
+fig.savefig(PATH_OUT,bbox_inches = 'tight')
 
 plt.show()    
 
@@ -774,7 +773,7 @@ df_wdi_iqr = pd.concat(iqr_list,axis =0).sort_values(['site','variable']).round(
 df_wdi_diff_thsd = pd.concat(wdi_diff_thsd_list,axis =0)
 # df_wdi_diff_thsd.to_csv('./tables/results/Table_S16.csv', sep=';', index = False)
 
-# %% 3. COMPUTE & PLOT FCOVER IN 5 x 5 m GRID CELLS
+# %% 3. COMPUTE deltaWDI & PLOT FCOVER IN 5 x 5 m GRID CELLS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # give window side length in number of pixels (33 px of 15 cm resolution make 4.95 m)
 windowsize = 33
@@ -812,7 +811,7 @@ for i,site in enumerate(sites):
     
     label_order = df_m_s.variable.cat.categories.to_list()
     
-    PATH_SAVE = f'../figures/Fig_3_{site}.png'
+    PATH_SAVE = f'../figures/Fig_4_{site}.png'
     
     if site == 'CBH':
         _, ax = plt.subplots(figsize=(45,20), dpi = 200) 
@@ -829,7 +828,7 @@ for i,site in enumerate(sites):
                                            model = 'cubic', 
                                            plot_type = 'regplot',
                                            PATH_OUT = PATH_SAVE,
-                                           saveFig = True)
+                                           saveFig = False)
         plt.show()
         handles = h
         labels = l
@@ -870,7 +869,7 @@ leg1 = fig.legend(hand_adj,lab_adj,
 # Adjust the position of the legend within the figure
 fig.add_artist(leg1)
 fig.tight_layout()
-fig.savefig('../figures/Fig_S12.png',bbox_inches = 'tight')
+# fig.savefig('../figures/Fig_S12.png',bbox_inches = 'tight')
 
 # Show subplot figure for Ridge & TLB
 plt.sca(axs[1])
@@ -995,25 +994,46 @@ fig.legend(p,labels = [2020,2021],loc = 'lower center',frameon = False,
 PATH_OUT = r'..\figures\Fig_S4.png'
 # plt.savefig(PATH_OUT,bbox_inches = 'tight',dpi=300)
 
-# %% temporary:
-# Check if the TIMESTAMP of the flux tower data is offset
+# %% Check if the TIMESTAMP of the flux tower data is offset
 
 f,axs = plt.subplots(nrows = 2,figsize = (10,6),sharey = True)
 
 for i,year in enumerate([2020,2021]):
     # select a date range for each year
     if year == 2020:
-        start_date = '19-07-2020'; end_date = '27-07-2020'
+        start_date = '20-07-2020'; end_date = '28-07-2020'
+        flight_date = pd.to_datetime('24-07-2020')
     else:
-        start_date = '14-07-2021'; end_date = '23-07-2021'
+        start_date = '15-07-2021'; end_date = '23-07-2021'
+        flight_date = pd.to_datetime('19-07-2021')
         
-    mask = (df_fluxtower.index > start_date) & (df_fluxtower.index <= end_date)
-    
     ax = axs[i]
     
     df_fluxtower.loc[start_date:end_date].Rn_CNR1_Avg.plot(ax=ax)
+    ax.axvspan(ymin = -100,ymax = 600,
+               xmin = flight_date, xmax = flight_date + pd.Timedelta(days=1),
+               facecolor='gray', alpha=0.5,)
     
-    plt.show()
+plt.show()
+
+# f,axs = plt.subplots(nrows = 2,figsize = (10,6),sharey = True)
+
+# for i,year in enumerate([2020,2021]):
+#     if year == 2020:
+#         start_date = '20-07-2020'; end_date = '28-07-2020'
+#         flight_date = pd.to_datetime('24-07-2020')
+#     else:
+#         start_date = '15-07-2021'; end_date = '23-07-2021'
+#         flight_date = pd.to_datetime('19-07-2021')
+        
+#     sns.lineplot(data = df_fluxtower.loc[start_date:end_date],
+#                  x=df_fluxtower.loc[start_date:end_date].index.hour,
+#                  y="Rn_CNR1_Avg",
+#                  hue = df_fluxtower.loc[start_date:end_date].index.day,
+#                  palette = "muted",
+#                  ax = axs[i]
+#                  )
+#     axs[i].get_legend().remove()
 
 #%% 6 c. SPEI3:
 # --------
@@ -1284,7 +1304,7 @@ plt.savefig('../figures/Fig_S5.png',bbox_inches = 'tight', facecolor='white')
 
 plt.show()
 
-# %% 6 e. PLOT SENSOR DRIFT
+# %% 6 e. Plot sensor drift
 plot_fit = 'fit_2'
 cutoff = 13
 
@@ -1624,3 +1644,78 @@ for s in ['TLB','Ridge']:
         i += 1
 # df_out.round(2).to_csv(f'./results/statistics/Suppl_Table_TOMST_{text}_Drone_reldiffs.csv',sep = ';')
 print(df_out.round(2))
+
+# %% 7. Sensitivity of T_airt from HOBOs vs. flux tower:
+from glob import glob
+    
+def read_HOBO(fname_ws):
+    """
+    Reads a HOBO logger file and converts it into a Pandas.DataFrame.
+    
+    Requires:
+    - a filename (incl. path) of the weather station data
+    
+    Returns:
+    - a DataFrame with a timezone-aware datetime index.
+    """
+    parser = lambda date: pd.to_datetime(date,
+                                         format='%m.%d.%y %I:%M:%S %p').tz_localize('Asia/Srednekolymsk')
+    
+    df = pd.read_csv(fname_ws,sep = ';',
+                     decimal=',',
+                     header = 0,
+                     parse_dates = [1] , date_parser = parser,
+                     index_col = [1])
+    
+    return df
+
+sns.set_theme(style = 'ticks',font_scale = 1)
+
+f,ax = plt.subplots(figsize = (10,5))
+i = 1
+yticks = []
+
+# Look at differences in Tair between HOBO & flux tower
+for year in [2020,2021]:
+        
+    flightday = '19-07-2021' if year == 2021 else '24-07-2020'
+    
+    for site in ['TLB','Ridge']:
+        print(f'Mean Tair (flux tower) during the {site} flight in {year}: %.2f °C' % GetMeanTair(df_flighttimes, df_fluxtower, site, year) )
+        
+        df_hobo = read_HOBO(f'C:/data/0_Kytalyk/1_hobo_sensors/data_HOBO_meteo_{site}.csv')
+        
+        row = df_flighttimes[np.logical_and(df_flighttimes.site == site,df_flighttimes.year == year)]
+        start = row.start_time_local.item()
+        end = row.end_time_local.item()
+        
+        df_sliced = df_fluxtower[(df_fluxtower.index >= start - pd.Timedelta(15,'min')) &
+                                 (df_fluxtower.index <= end + pd.Timedelta(15,'min'))]
+        
+        df_sliced_hobo = df_hobo[(df_hobo.index >= start - pd.Timedelta(15,'min')) &
+                                 (df_hobo.index <= end + pd.Timedelta(15,'min'))]
+        
+        # The horizontal plot is made using the hline function
+        x1 = df_sliced.Barani_Temp_2_Avg.mean()
+        x2 = df_sliced_hobo.temperature_60cm.mean()
+        
+        ax.hlines(y = i, xmin=x1, xmax=x2, color='grey', alpha=0.4)
+        ax.scatter(x1, i, color='skyblue', alpha=1)
+        ax.scatter(x2, i, color='green', alpha=0.4)
+        
+        ax.annotate('%.1f °C' % (x2 - x1), (np.mean([x1,x2]),i),
+                    xytext=(-6, 3),textcoords="offset points")
+        
+        yticks.append(f'{site} - {year}') 
+        
+        i +=1
+        
+ax.legend(['difference','flux tower','hobo'])
+        
+# Add title and axis names
+ax.set_yticks(range(1,5),yticks)
+ax.set_title("Comparison of $T_{air}$ from HOBO vs flux tower", loc='left')
+ax.set_xlabel('Air temperature (°C)')
+        
+fig.tight_layout()
+
