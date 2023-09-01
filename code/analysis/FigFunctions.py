@@ -168,7 +168,7 @@ def PlotDensities(data: pd.DataFrame, xvar: str,
         xs = xs[~xs.index.isin(['water'])]
         
         # add vertical lines on centers:
-        for cen in xs.iteritems():
+        for cen in xs.items():
             ax.axvline(cen[1],c = colors[cen[0]], ls = '--', lw = lw, alpha = .5)
         
         xpos = pd.DataFrame({

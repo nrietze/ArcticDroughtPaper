@@ -382,7 +382,7 @@ xvar = 'deltaT'
 xlim = [0,25]
 
 for i,site in enumerate(sites):
-    print(f'Generating subplot in {site} for Figure 1...')   
+    print(f'Generating subplot in {site} for Figure 2...')   
     
     df_m_s = df_list[i]
     
@@ -402,7 +402,7 @@ for i,site in enumerate(sites):
     
     print('2021: \n', mc21.tukeyhsd(), end = '\n')                                                                                       
                                                                                                
-    PATH_SAVE = f'../figures/Fig_1_{site}.png'
+    PATH_SAVE = f'../figures/Fig_2_{site}.png'
     
     # Plot Densities in 2021
     ax = PlotDensities(df_m_s, xvar,PATH_SAVE,
@@ -412,7 +412,7 @@ for i,site in enumerate(sites):
                        order = label_order,
                        showWater = False,
                        showBothYears = False,
-                       saveFig = False)
+                       saveFig = True)
     
     plt.show()
     
@@ -423,7 +423,7 @@ for i,site in enumerate(sites):
     thsd = pd.DataFrame(data = mc20.tukeyhsd()._results_table.data[1:], 
                         columns = mc20.tukeyhsd()._results_table.data[0])
     
-    PATH_SAVE = f'../figures/Fig_1_both_{site}.png'
+    PATH_SAVE = f'../figures/Fig_2_both_{site}.png'
     ax = PlotDensities(df_sample, xvar,PATH_SAVE,
                         xlim = [-5,25],
                         colors = colordict,
@@ -445,7 +445,7 @@ for i,site in enumerate(sites):
 group_var = 'variable'
 xvar = 'deltaT'
 xlim = [7,25] if xvar == 'deltaT' else None
-PATH_OUT = '../figures/Fig_2.png' 
+PATH_OUT = '../figures/Fig_2.eps' 
 lw = 5
 showSignif = True
 
@@ -644,7 +644,7 @@ labs = ['(a)','(b)']
 _, _= plt.subplots() 
 
 for i,site in enumerate(sites):
-    print(f'Generating subplot in {site} for Figure 1...')   
+    print(f'Generating subplot in {site} for Figure 3...')   
     
     df_m_s = df_list[i]
     
@@ -690,7 +690,7 @@ for i,site in enumerate(sites):
     # write t-test table to list
     tt_list.append( df_ttest)
     
-    PATH_SAVE = f'../figures/Fig_2_{site}.png'
+    PATH_SAVE = f'../figures/Fig_3_{site}.eps'
     
     if site == 'CBH':
         # Plot CBH boxplot individually for main text
@@ -811,7 +811,7 @@ for i,site in enumerate(sites):
     
     label_order = df_m_s.variable.cat.categories.to_list()
     
-    PATH_SAVE = f'../figures/Fig_4_{site}.png'
+    PATH_SAVE = f'../figures/Fig_4_{site}.jpg'
     
     if site == 'CBH':
         _, ax = plt.subplots(figsize=(45,20), dpi = 200) 
@@ -828,7 +828,7 @@ for i,site in enumerate(sites):
                                            model = 'cubic', 
                                            plot_type = 'regplot',
                                            PATH_OUT = PATH_SAVE,
-                                           saveFig = False)
+                                           saveFig = True)
         plt.show()
         handles = h
         labels = l
@@ -875,16 +875,36 @@ fig.tight_layout()
 plt.sca(axs[1])
 plt.show()
 
-# %% 4. Plot NDVI vs LST
-base_palette = {2020: "brown",2021:"midnightblue"}
+# %% 4. Plot NDVI vs LST trapezoids
 
-sns.lmplot(
-    data=df_list[0],
-    x="ndvi", y="deltaT", col="variable",hue = 'year',
-    palette = base_palette,
-    col_wrap = 3,
-    height=5, scatter_kws={"s": 50, "alpha": .05}
-)
+# Merge all dataframes and assign site in a column
+df_all = pd.concat([df.assign(site=site) for site,df in zip(sites,df_list)])
+
+# Plot Trapezoids separated into flights
+g = sns.lmplot(
+        data = df_all,
+        x="deltaT", y="ndvi", col="site",row= 'year',
+        hue = 'variable', palette = colordict,
+        fit_reg = False,
+        height=5, scatter_kws={"s": 50, "alpha": .05}
+    )
+g.set_xlabels('$T_{surf}$ - $T_{air}$ (°C)')
+
+plt.savefig('../../figures_and_maps/trapezoids/ndvi_lst_all_sites_all_years.png',
+            bbox_inches = 'tight')
+
+# Plot trapezoids combined in each year
+g = sns.lmplot(
+        data = df_all,
+        x="deltaT", y="ndvi", col="year",
+        hue = 'variable', palette = colordict,
+        fit_reg = False,
+        height=5, scatter_kws={"s": 50, "alpha": .05}
+        )
+g.set_xlabels('$T_{surf}$ - $T_{air}$ (°C)')
+
+plt.savefig('../../figures_and_maps/trapezoids/ndvi_lst_combined_sites_all_years.png',
+            bbox_inches = 'tight')
 
 # %% 6. SUPPLEMENTARY FIGURES
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
