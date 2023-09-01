@@ -64,3 +64,10 @@ When citing elements in this repository, please cite as:
 Rietze, Nils, Assmann, Jakob J., Damm, Alexander, Naegeli, Kathrin, Karsanaev, Sergey V., Maximov, Trofim C.,Plekhanova, Elena, Schaepman-Strub, Gabriela. *in prep*. Summer drought weakens land surface cooling by tundra vegetation. 
 
 [to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
+
+## License
+
+<a rel="license" href="http://creativecommons.org/licenses/by/4.0/"><img alt="Creative Commons Lizenzvertrag" style="border-width:0" src="https://i.creativecommons.org/l/by/4.0/88x31.png" /></a><br /> This work is licensed under a <a rel="license" href="http://creativecommons.org/licenses/by/4.0/">Creative Commons Namensnennung 4.0 International Lizenz</a>.
+
+[to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
+
