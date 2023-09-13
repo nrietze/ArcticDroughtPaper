@@ -31,8 +31,14 @@ There are three code folders that serve for the different processing steps in th
 ```
 
 - The scripts in `analysis` are used to generate the main and supplementary figures as well as the supporting tables.
+  - `3_analysis.py` is used to produce the output figures and perform the statistical tests.
+  - `4_spei.R` generates the SPEI climatology from observations from the Chokurdakh meteorological station.
 - The scripts in `classification` are used to prepare the drone imagery and run the random forest classification.
-- The scripts in `thermal_drift_correction` are used to remove the temperature drift for all images in a thermal flight.
+  -  `0_resampling.py` is used to resample the multipsectral and thermal imagery to common grids and resolutions.
+  -  `1_1_runGLCM.R` is used to generate the GLCM maps of the multispectral bands and indices, run this prior to `1_1_prep_classification.py`.
+  -  `1_1_prep_classification.py` is used to prepare the multispectral index stacks, randomly sampled training and validation points based on the polygons supplied in the supplementary data.
+  -  `1_classification.py` is used to execute the classification of tundra land cover, performing cross-validation and producing the land cover maps.
+- The scripts in `thermal_drift_correction` are used to remove the temperature drift for all images in a thermal flight. 
 - The folder `data` is empty and should contain the data that can be downloaded from Zenodo (see link on top).
 
 [to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
