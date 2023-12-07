@@ -19,7 +19,7 @@ from statsmodels.stats.multicomp import MultiComparison
 from scipy.stats import ttest_ind, ttest_rel
 
 import sys, os
-os.chdir(r'C:\Users\nils\OneDrive - Universität Zürich UZH\Dokumente 1\1_PhD\5_CHAPTER1\paper\github\code\analysis')
+os.chdir(r'C:\Users\nrietze\Documents\1_PhD\5_CHAPTER1\paper\github\code\analysis')
 
 from FigFunctions import read_fluxtower,GetMeanTair,PrepRasters,MeltArrays,ScaleMinMax,DifferenceTest,pretty_table,ProgressParallel,PlotDensities,PlotBoxWhisker,PlotFcoverVsTemperature,MapFcover_np,PolyFitSensorT,GatherData
 
@@ -251,12 +251,17 @@ for i,site in enumerate(sites):
                                  I_cl_s,names,2021,'diff_wdi')
         df_tir['diff_wdi'] = df_wdi_diff.diff_wdi
         
+        
+        df_ndvi_diff = MeltArrays(I_ndvi_20_s - I_ndvi_21_s,
+                                 I_cl_s,names,2021,'diff_ndvi')
+        df_tir['diff_ndvi'] = df_ndvi_diff.diff_ndvi
+        
         if site == 'CBH':
             from osgeo import gdal
             import rioxarray as rxr
             from skimage.io import imread
 
-            I_tpi_cbh = imread(r'C:\Users\nils\OneDrive - Universität Zürich UZH\Dokumente 1\1_PhD\5_CHAPTER1\data\wetness_index\TPI_CBH.tif')
+            I_tpi_cbh = imread(r'C:/Users/nrietze/Documents/1_PhD/5_CHAPTER1/data/wetness_index/TPI_CBH.tif')
             I_tpi_cbh_s =  I_tpi_cbh[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
             
             df_tpi = MeltArrays(I_tpi_cbh_s,I_cl_s,names,2021,'tpi')
@@ -701,7 +706,7 @@ for i,site in enumerate(sites):
                            data_ttest = df_ttest,
                            showWater = True,
                            PATH_OUT=PATH_SAVE,
-                           saveFig = True)
+                           saveFig = False)
         plt.show()
     else:
         ax = PlotBoxWhisker(df_m_s, yvar,
@@ -1739,3 +1744,71 @@ ax.set_xlabel('Air temperature (°C)')
         
 fig.tight_layout()
 
+#%% 8. Boxplot of NDVI differences
+# ----
+
+yvar = 'ndvi'
+
+# Lists for the test result dataframes
+tt_list = list()
+thsd_list = list()
+
+# create subplots
+fig, axs = plt.subplots(nrows = 3, figsize=(30,20), dpi = 200) 
+
+# Adjust spacing between subplots and colorbar
+plt.subplots_adjust(hspace=.6) 
+
+# Create the subplots
+labs = ['(a)','(b)','(c)']
+
+# create dummy subplot for CBH first
+_, _= plt.subplots() 
+
+for i,site in enumerate(sites):
+    print(f'Generating NDVI difference plot in {site}...')   
+    
+    df_m_s = df_list[i]
+    
+    label_order = df_m_s.variable.cat.categories.to_list()
+        
+    # sample random observations per plant community and year to avoid effect of large sample
+    df_sample = df_m_s.groupby(['variable','year']).sample(frac = 0.1)
+    
+    # Welch's ttest for unequal variances between years
+    alpha = .01
+    ttest = df_sample.groupby(['variable']).apply(lambda x: ttest_ind(x.loc[x.year==2020,yvar],
+                                                                      x.loc[x.year==2021,yvar], 
+                                                                      equal_var=False))
+    df_ttest = pd.DataFrame([[z,p] for z,p in ttest.values],columns = ['tstat','pval']).set_index(ttest.index)
+    df_ttest['reject'] = df_ttest.pval < alpha
+    df_ttest.loc[df_ttest.pval < 0.01,'text'] = '< 0.01'
+    
+    df_ttest['site'] = site
+    
+    # Mean WDI differences between years for each group
+    df_ttest['meandiff'] = df_sample.groupby(['variable']).apply(
+        lambda x: round(x.loc[x.year == 2020,yvar].mean() -
+                        x.loc[x.year == 2021,yvar].mean(),2))
+    
+    # write t-test table to list
+    tt_list.append( df_ttest)
+    
+    PATH_SAVE = f'../figures/Fig_3_{site}.eps'
+    
+    ax = PlotBoxWhisker(df_m_s, yvar,
+                        ax = axs[i-1],
+                        label_order = label_order,
+                        colors = colordict,
+                        showSignif=True,
+                        data_ttest = df_ttest,
+                        showWater = True,
+                        PATH_OUT=PATH_SAVE,
+                        saveFig = False)
+    
+    axs[i-1].text(-0.1, 1.3, labs[i-1] + ' ' + site, 
+                  transform=axs[i-1].transAxes, weight='bold')
+    
+# Show subplot figure for Ridge & TLB
+plt.sca(axs[1])
+plt.show()

@@ -357,7 +357,14 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
                     whis=[1, 99],
                     ax = ax,
                     fliersize=0.1)
-    ylab = 'Water deficit index' if yvar == 'wdi' else '$T_{surf}$ - $T_{air}$ (°C)' # 'Standardized $T_{surf}$ - $T_{air}$ (-)'
+    
+    if yvar == 'wdi':
+        ylab = 'Water deficit index'  
+        ax.set_ylim([0,1]) 
+    elif yvar == 'deltaT':
+        ylab = '$T_{surf}$ - $T_{air}$ (°C)' 
+    elif yvar == 'ndvi':
+        ylab = 'NDVI'
     
     ax.set(ylabel = ylab,
            xlabel = '')
@@ -370,9 +377,6 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
     
     # set the x tick label positioning
     ax.xaxis.set_tick_params(pad=150)
-    
-    if yvar == 'wdi':
-        ax.set_ylim([0,1]) 
     
     ax.tick_params(axis = 'both', top=True, labeltop=True,
                    bottom=False, labelbottom=False,
