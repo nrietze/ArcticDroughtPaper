@@ -365,6 +365,7 @@ def PlotBoxWhisker(data: pd.DataFrame, yvar: str,
         ylab = '$T_{surf}$ - $T_{air}$ (°C)' 
     elif yvar == 'ndvi':
         ylab = 'NDVI'
+        ax.set_ylim([0.2,1]) 
     
     ax.set(ylabel = ylab,
            xlabel = '')

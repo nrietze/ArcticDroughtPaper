@@ -1754,16 +1754,13 @@ tt_list = list()
 thsd_list = list()
 
 # create subplots
-fig, axs = plt.subplots(nrows = 3, figsize=(30,20), dpi = 200) 
+fig, axs = plt.subplots(nrows = 3, figsize=(30,30), dpi = 200) 
 
 # Adjust spacing between subplots and colorbar
 plt.subplots_adjust(hspace=.6) 
 
 # Create the subplots
 labs = ['(a)','(b)','(c)']
-
-# create dummy subplot for CBH first
-_, _= plt.subplots() 
 
 for i,site in enumerate(sites):
     print(f'Generating NDVI difference plot in {site}...')   
@@ -1794,21 +1791,38 @@ for i,site in enumerate(sites):
     # write t-test table to list
     tt_list.append( df_ttest)
     
-    PATH_SAVE = f'../figures/Fig_3_{site}.eps'
-    
     ax = PlotBoxWhisker(df_m_s, yvar,
                         ax = axs[i-1],
                         label_order = label_order,
                         colors = colordict,
                         showSignif=True,
                         data_ttest = df_ttest,
-                        showWater = True,
+                        showWater = False,
                         PATH_OUT=PATH_SAVE,
                         saveFig = False)
     
     axs[i-1].text(-0.1, 1.3, labs[i-1] + ' ' + site, 
                   transform=axs[i-1].transAxes, weight='bold')
     
-# Show subplot figure for Ridge & TLB
-plt.sca(axs[1])
+plt.savefig(f'../figures/Fig_S_NDVIdiffs.png')
 plt.show()
+
+
+# %%
+sns.set_theme(style="ticks", 
+               rc={"figure.figsize":(30, 10)},
+              font_scale = 1)
+
+for i,site in enumerate(sites):
+    print(f'Generating NDVI difference plot in {site}...')   
+    
+    df_m_s = df_list[i]
+    g = sns.FacetGrid(df_m_s, col="variable", hue="variable", 
+                      col_wrap=3,
+                      palette=colordict)
+    g.map(sns.scatterplot, "diff_ndvi", "diff_wdi", 
+          edgecolor='none',alpha = 0.3)
+    g.set_axis_labels(x_var= 'NDVI difference (2020 - 2021)', 
+                      y_var = 'WDI difference (2020 - 2021)')
+    g.set_titles('{col_name}')
+    g.add_legend(title = 'Plant community')
