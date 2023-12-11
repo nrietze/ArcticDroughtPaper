@@ -21,9 +21,10 @@ from scipy.stats import ttest_ind, ttest_rel
 import sys, os
 os.chdir(r'C:\Users\nrietze\Documents\1_PhD\5_CHAPTER1\paper\github\code\analysis')
 
-from FigFunctions import read_fluxtower,GetMeanTair,PrepRasters,MeltArrays,ScaleMinMax,DifferenceTest,pretty_table,ProgressParallel,PlotDensities,PlotBoxWhisker,PlotFcoverVsTemperature,MapFcover_np,PolyFitSensorT,GatherData
+from FigFunctions import read_fluxtower,GetMeanTair,PrepRasters,MeltArrays,ScaleMinMax,DifferenceTest,pretty_table,ProgressParallel
+from FigFunctions import PlotDensities,PlotBoxWhisker,PlotFcoverVsTemperature,MapFcover_np,PolyFitSensorT,GatherData
 
-# %% 0. LOAD DATA & PREALLOCATIONS
+# 0. LOAD DATA & PREALLOCATIONS
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 # configure variables
@@ -88,16 +89,26 @@ if not os.path.exists('./tables/intermediate/'):
 Plot_Mosaic_Panels = False   
  
 if Plot_Mosaic_Panels:
-    # source = 'LC' 
-    source = 'TIR' 
+    # source = 'LC' ,'TIR'
+    source = 'WDI' 
     
-    # Figure instance for mosaic overviews
-    sns.set_theme(style="ticks",font_scale=3)
-    fig,axs = plt.subplots(2,3, sharex = False, sharey = False, figsize = (24,17))    
+    nrows = 2
+    fig_size = (24,17)
     
     if source == 'TIR':
         cmap = cm.lajolla_r
         vmin = 15; vmax = 35
+        fname = '../figures/Fig_S7.png' 
+    
+    elif source == 'WDI':
+        cmap = cm.bilbao
+        vmin = 0; vmax = .4
+        nrows = 1
+        fig_size = (24,9)
+        fname = '../figures/Fig_S_WDI_diff.png'
+        
+    else: 
+        fname = '../figures/Fig_S8.png'
         
     # Create a custom color map based on the color dictionary
     color_dict = {'0.0': '#AAFF00', # HP1
@@ -108,6 +119,10 @@ if Plot_Mosaic_Panels:
                   '5.0': '#734C00', # mud
                   '6.0': '#3D3242', # TS (6 for the overview panel plot, colormaps need to have ranges for values)
                   'nan': '#FFFFFF'}
+    
+    # Figure instance for mosaic overviews
+    sns.set_theme(style="ticks",font_scale=3)
+    fig,axs = plt.subplots(nrows= nrows,ncols = 3, sharex = False, sharey = False, figsize = fig_size)  
 
 # Iterate through sites to load data
 for i,site in enumerate(sites):
@@ -181,6 +196,11 @@ for i,site in enumerate(sites):
             I_src_20 = I_tir_20_s
             I_src_21 = I_tir_21_s
             
+        # Plot WDI difference maps
+        elif source == 'WDI':
+            I_src_20 = I_wdi_20_s
+            I_src_21 = I_wdi_21_s
+        
         # Plot land cover classes
         else:
             I_src_20 = np.where(I_wm_s == 9, np.nan , I_wm_s)
@@ -195,21 +215,31 @@ for i,site in enumerate(sites):
             cmap = ListedColormap(colors)
             vmin = 0
             vmax = max(unique_values) + 1 if site != 'Ridge' else 3
-          
-        # Plot 2020 drone data
-        p = axs[0][i].imshow(I_src_20,cmap = cmap, 
-                             aspect = 'equal',
-                             interpolation = 'nearest',
-                             vmin = vmin, vmax = vmax)
-
-        axs[0][i].set_title( site, fontweight = 'bold')
         
-        # Plot 2021 drone data
-        axs[1][i].imshow(I_src_21,cmap = cmap, 
-                         interpolation = 'nearest',
-                         aspect = 'equal',
-                         vmin = vmin, vmax = vmax)
-
+        if source == 'WDI':
+            # Plot 2020 drone data
+            p = axs[i].imshow(I_src_20 - I_src_21,cmap = cmap, 
+                                 aspect = 'equal',
+                                 interpolation = 'nearest',
+                                 vmin = vmin, vmax = vmax)
+    
+            axs[i].set_title( site, fontweight = 'bold')
+        
+        else:
+            # Plot 2020 drone data
+            p = axs[0][i].imshow(I_src_20,cmap = cmap, 
+                                 aspect = 'equal',
+                                 interpolation = 'nearest',
+                                 vmin = vmin, vmax = vmax)
+    
+            axs[0][i].set_title( site, fontweight = 'bold')
+            
+            # Plot 2021 drone data
+            axs[1][i].imshow(I_src_21,cmap = cmap, 
+                             interpolation = 'nearest',
+                             aspect = 'equal',
+                             vmin = vmin, vmax = vmax)
+    
         for ax in axs.flat:
             for spine in ax.spines.values():
                 spine.set_edgecolor('black')
@@ -257,8 +287,6 @@ for i,site in enumerate(sites):
         df_tir['diff_ndvi'] = df_ndvi_diff.diff_ndvi
         
         if site == 'CBH':
-            from osgeo import gdal
-            import rioxarray as rxr
             from skimage.io import imread
 
             I_tpi_cbh = imread(r'C:/Users/nrietze/Documents/1_PhD/5_CHAPTER1/data/wetness_index/TPI_CBH.tif')
@@ -319,23 +347,33 @@ for i,site in enumerate(sites):
     print('done.')
 
 if Plot_Mosaic_Panels:
-
-    # Add year labels on y-axis
-    fig.text(0, 0.75, 2020, va='center', rotation='vertical', fontweight = 'bold')
-    fig.text(0, 0.25, 2021, va='center', rotation='vertical', fontweight = 'bold')
     
+    if not source == 'WDI':
+        # Add year labels on y-axis
+        fig.text(0, 0.75, 2020, va='center', rotation='vertical', fontweight = 'bold')
+        fig.text(0, 0.25, 2021, va='center', rotation='vertical', fontweight = 'bold')
+        
+        # Add a scale bar below the bottom center subplot
+        # bottom_center_ax = fig.add_subplot(3, 2, 5)  # 3 rows, 2 columns, position 5
+        bottom_center_ax = fig.add_axes([0.345, -0.01, 0.315, 0.05])
+        bottom_center_ax.axhline(3000, color='gray', linestyle='-',lw = 20)
+        bottom_center_ax.set_axis_off()
+        
+        # Add a text label below the line
+        bottom_center_ax.text(0.5, -0.25, '400 m',color='gray',
+                              ha='center', va='center', transform=bottom_center_ax.transAxes)
+
+    else:
+        # Add a scale bar below the bottom center subplot
+        bottom_center_ax = fig.add_axes([0.348, 0.01, 0.305, 0.05])
+        bottom_center_ax.axhline(3000, color='gray', linestyle='-',lw = 20)
+        bottom_center_ax.set_axis_off()
+        
+        # Add a text label below the line
+        bottom_center_ax.text(0.5, -0.2, '400 m',color='gray',
+                              ha='center', va='top', transform=bottom_center_ax.transAxes)
     # despine figure
     # sns.despine()
-    
-    # Add a scale bar below the bottom center subplot
-    # bottom_center_ax = fig.add_subplot(3, 2, 5)  # 3 rows, 2 columns, position 5
-    bottom_center_ax = fig.add_axes([0.345, -0.01, 0.315, 0.05])
-    bottom_center_ax.axhline(3000, color='gray', linestyle='-',lw = 20)
-    bottom_center_ax.set_axis_off()
-    
-    # Add a text label below the line
-    bottom_center_ax.text(0.5, -0.25, '400 m',color='gray',
-                          ha='center', va='center', transform=bottom_center_ax.transAxes)
     
     # Add the colorbar for thermal data
     if source == 'TIR':
@@ -346,7 +384,20 @@ if Plot_Mosaic_Panels:
                             orientation='horizontal',
                             extend = 'both',
                             label = 'Surface temperature (°C)')
-        cbar.set_ticks(np.arange(vmin,vmax+1,5))  # Example tick positions
+        cbar.set_ticks(np.arange(vmin,vmax+.1,5))  # Example tick positions
+        
+        cbar.outline.set_visible(False)
+        
+    # Add the colorbar for WDI change
+    elif source == 'WDI':
+        # Create the colorbar axes below the subplots
+        cax = fig.add_axes([0.2, -0.1, 0.6, 0.05])
+        
+        cbar = plt.colorbar(p, cax=cax, 
+                            orientation='horizontal',
+                            extend = 'both',
+                            label = 'Difference in water deficit index (-)')
+        cbar.set_ticks(np.arange(vmin,vmax+.1, .1))  # Example tick positions
         
         cbar.outline.set_visible(False)
         
@@ -373,7 +424,7 @@ if Plot_Mosaic_Panels:
                         left = 0.1, right = 0.8,
                         hspace=0.1, wspace=0.1)  
     fig.tight_layout()
-    fname = '../figures/Fig_S7.png' if source == 'TIR' else '../figures/Fig_S8.png'
+    
     
     plt.savefig(fname,dpi = 200,bbox_inches = 'tight')
 
@@ -1018,47 +1069,6 @@ fig.legend(p,labels = [2020,2021],loc = 'lower center',frameon = False,
 
 PATH_OUT = r'..\figures\Fig_S4.png'
 # plt.savefig(PATH_OUT,bbox_inches = 'tight',dpi=300)
-
-# %% Check if the TIMESTAMP of the flux tower data is offset
-
-f,axs = plt.subplots(nrows = 2,figsize = (10,6),sharey = True)
-
-for i,year in enumerate([2020,2021]):
-    # select a date range for each year
-    if year == 2020:
-        start_date = '20-07-2020'; end_date = '28-07-2020'
-        flight_date = pd.to_datetime('24-07-2020')
-    else:
-        start_date = '15-07-2021'; end_date = '23-07-2021'
-        flight_date = pd.to_datetime('19-07-2021')
-        
-    ax = axs[i]
-    
-    df_fluxtower.loc[start_date:end_date].Rn_CNR1_Avg.plot(ax=ax)
-    ax.axvspan(ymin = -100,ymax = 600,
-               xmin = flight_date, xmax = flight_date + pd.Timedelta(days=1),
-               facecolor='gray', alpha=0.5,)
-    
-plt.show()
-
-# f,axs = plt.subplots(nrows = 2,figsize = (10,6),sharey = True)
-
-# for i,year in enumerate([2020,2021]):
-#     if year == 2020:
-#         start_date = '20-07-2020'; end_date = '28-07-2020'
-#         flight_date = pd.to_datetime('24-07-2020')
-#     else:
-#         start_date = '15-07-2021'; end_date = '23-07-2021'
-#         flight_date = pd.to_datetime('19-07-2021')
-        
-#     sns.lineplot(data = df_fluxtower.loc[start_date:end_date],
-#                  x=df_fluxtower.loc[start_date:end_date].index.hour,
-#                  y="Rn_CNR1_Avg",
-#                  hue = df_fluxtower.loc[start_date:end_date].index.day,
-#                  palette = "muted",
-#                  ax = axs[i]
-#                  )
-#     axs[i].get_legend().remove()
 
 #%% 6 c. SPEI3:
 # --------
@@ -1808,7 +1818,96 @@ plt.savefig(f'../figures/Fig_S_NDVIdiffs.png')
 plt.show()
 
 
+# %% 9. Plot TPI in the meanT vs. fcover relationship
+from skimage.io import imread
+from matplotlib import colors
+
+site = 'CBH'
+i = 0
+
+df_m_s = pd.read_csv(f'./tables/intermediate/{site}_data_thermal.csv',sep=';')
+
+# Load and crop TPI raster
+I_tpi_cbh = imread(r'C:/Users/nrietze/Documents/1_PhD/5_CHAPTER1/data/wetness_index/TPI_CBH.tif')
+I_tpi_cbh_s =  I_tpi_cbh[extent['ymin']:extent['ymax'],extent['xmin']:extent['xmax']]
+
+# Compute grid cell TPI
+windowsize = 33
+df_tpi = MapFcover_np(windowsize, I_cl_list[i],I_tpi_cbh_s)
+df_dwdi = MapFcover_np(windowsize, I_cl_list[i],(I_wdi_20_list[i] - I_wdi_21_list[i]))
+
+# If this error appears: 
+#     BrokenProcessPool: A task has failed to un-serialize. Please ensure that the arguments of the function are all picklable.
+# re-run the FigFunctions script to redefine the modules
+
+# Rename columns
+df_tpi.columns = ['classes', 'count', 'fcover', 'tpi', 'sigma_tpi']
+df_dwdi.columns = ['classes', 'count', 'fcover', 'dwdi', 'sigma_dwdi']
+
+# merge dataframes
+df_out = pd.concat([df_tpi, df_dwdi],axis = 1)
+df_out = df_out.loc[:, ~df_out.columns.duplicated()]
+
+# Remove empty rows and water & mud from dataframe
+df_out = df_out.dropna()    
+mask = np.logical_and(df_out.classes != 'water',df_out.classes != 'mud')
+data_masked = df_out.loc[mask,:]
+
+# Define binning variables
+bin_var = 'dwdi'
+val_var = 'dwdi' if bin_var == 'fcover' else 'fcover'
+bin_interval = 1 if bin_var == 'fcover' else 0.005
+
+# aggregate val_var into the bins given by bin_var
+bins = np.arange(0,data_masked[bin_var].max(),bin_interval)
+group = data_masked.groupby(['classes',
+                          pd.cut(data_masked[bin_var], bins)
+                          ])
+
+# prepare dataframe for plotting
+classnames = list(data_masked['classes'].unique())
+n_classes = len(classnames)
+
+df_grouped = pd.DataFrame({'classes': np.repeat(classnames,len(bins)-1),
+                      bin_var: list(bins[1:]) *n_classes,
+                      val_var: group[val_var].apply(np.nanmean).reindex(classnames,level=0).values, # have to reindex to insert values at right class
+                      'tpi': group['tpi'].apply(np.nanmean).reindex(classnames,level=0).values, # have to reindex to insert values at right class
+                      val_var + '_std':group[val_var].std().reindex(classnames,level=0).values})
+
 # %%
+cl = 'HP1'
+
+s = 200
+
+df_p = df_grouped.loc[df_grouped['classes'] == cl,:].dropna()
+
+viz_max = df_p.tpi.quantile(.99)
+viz_min = -viz_max
+
+norm = colors.Normalize(vmin=viz_min, vmax=viz_max)
+
+sns.set_theme(style="ticks",
+              font_scale = 2,
+              rc = {"axes.spines.right": False, "axes.spines.top": False})
+
+
+f,ax = plt.subplots(figsize = (20,10))
+scatter = ax.scatter(x = df_p.fcover,y = df_p.dwdi,
+                     c = df_p.tpi,cmap = cm.bam,
+                     norm = norm,
+                     s = s)
+cbar = f.colorbar(scatter,
+           extend = 'both',
+           label = 'Topographic position index')
+cbar.ax.locator_params(nbins=5)
+
+ax.set(xlabel = 'Grid cell fCover (%)',
+       ylabel = 'Mean grid cell $\Delta WDI_{2020-2021}$')
+plt.savefig('../figures/Fig_S_TPI_relation.png'  ,bbox_inches = 'tight',dpi=150)
+
+# %% 10.Plot dWDI vs. dNDVI
+import scipy as sp
+
 sns.set_theme(style="ticks", 
                rc={"figure.figsize":(30, 10)},
               font_scale = 1)
@@ -1817,12 +1916,28 @@ for i,site in enumerate(sites):
     print(f'Generating NDVI difference plot in {site}...')   
     
     df_m_s = df_list[i]
-    g = sns.FacetGrid(df_m_s, col="variable", hue="variable", 
-                      col_wrap=3,
-                      palette=colordict)
-    g.map(sns.scatterplot, "diff_ndvi", "diff_wdi", 
-          edgecolor='none',alpha = 0.3)
+    
+    g = sns.lmplot(x='diff_ndvi', y='diff_wdi', data=df_m_s,
+               col='variable',col_wrap=3,
+               hue = 'variable', 
+               scatter_kws={'alpha':0.1},palette=colordict,
+               height=3, aspect=1)
+    
+    # g = sns.FacetGrid(df_m_s, col="variable", hue="variable", 
+    #                   col_wrap=3,
+    #                   palette=colordict)
+    
+    # g.map(sns.regplot, "diff_ndvi", "diff_wdi",
+    #       scatter_kws={'alpha':0.5})
+    
+    def annotate(data, **kws):
+        r, p = sp.stats.pearsonr(data['diff_ndvi'], data['diff_wdi'])
+        ax = plt.gca()
+        ax.text(.05, .8, 'r={:.2f},\np={:.2g}'.format(r, p),
+                transform=ax.transAxes)
+        
+    g.map_dataframe(annotate)
+
     g.set_axis_labels(x_var= 'NDVI difference (2020 - 2021)', 
                       y_var = 'WDI difference (2020 - 2021)')
     g.set_titles('{col_name}')
-    g.add_legend(title = 'Plant community')
