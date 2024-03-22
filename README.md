@@ -1,5 +1,5 @@
 # Code and documentation
-This repository contains the code used in Rietze et al. (*in prep*): Summer drought weakens land surface cooling by tundra vegetation.
+This repository contains the code used in Rietze et al. (2024): Summer drought weakens land surface cooling by tundra vegetation.
 
 The necessary data is publicly available under [![DOI](https://img.shields.io/badge/DOI-10.5281/zenodo.7886425-blue)](https://doi.org/10.5281/zenodo.7886425).
 
@@ -67,7 +67,7 @@ From the manuscript:
 ## Citation
 When citing elements in this repository, please cite as:
 
-Rietze, Nils, Assmann, Jakob J., Damm, Alexander, Naegeli, Kathrin, Karsanaev, Sergey V., Maximov, Trofim C.,Plekhanova, Elena, Schaepman-Strub, Gabriela. *in prep*. Summer drought weakens land surface cooling by tundra vegetation. 
+Rietze, Nils, Assmann, Jakob J., Damm, Alexander, Naegeli, Kathrin, Karsanaev, Sergey V., Maximov, Trofim C.,Plekhanova, Elena, Schaepman-Strub, Gabriela. 2024. Summer drought weakens land surface cooling by tundra vegetation. 
 
 [to top](https://github.com/nrietze/ArcticThermoregulation/main/README.md)
 
